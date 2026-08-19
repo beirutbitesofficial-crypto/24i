@@ -1,0 +1,1 @@
+import {describe,it,expect}from"vitest";import{invoiceState}from"./money";describe("invoice totals",()=>{it("tracks partial payments exactly",()=>{const x=invoiceState("500.00","300.00");expect(x.status).toBe("PARTIALLY_PAID");expect(x.remaining.toString()).toBe("200")});it("marks fully paid",()=>expect(invoiceState("500","500").status).toBe("PAID"));});
