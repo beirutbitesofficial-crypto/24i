@@ -8,6 +8,10 @@ const input = z.object({
   password: z.string().min(8).max(128),
 });
 
+const DEFAULT_ADMIN_EMAIL = "admin@24iproduction.com";
+const DEFAULT_ADMIN_PASSWORD = "23002300";
+const BOOTSTRAP_SETTING_KEY = "default_admin_bootstrap_used";
+
 export async function POST(req: Request) {
   const parsed = input.safeParse(await req.json());
   if (!parsed.success) {
@@ -16,8 +20,6 @@ export async function POST(req: Request) {
 
   const email = parsed.data.email.trim().toLowerCase();
   const password = parsed.data.password;
-  const envAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const envAdminPassword = process.env.ADMIN_PASSWORD;
 
   let user = await db.user.findUnique({ where: { email } });
   let valid = Boolean(
@@ -26,43 +28,49 @@ export async function POST(req: Request) {
       (await verifyPassword(user.passwordHash, password))
   );
 
-  // Recovery path for production deployments: if the submitted credentials match
-  // the server-side ADMIN_EMAIL / ADMIN_PASSWORD values, repair or create the admin
-  // account in the database and continue login. The password itself is never stored
-  // in plaintext; only an Argon2id hash is persisted.
-  const matchesEnvAdmin = Boolean(
-    envAdminEmail &&
-      envAdminPassword &&
-      email === envAdminEmail &&
-      password === envAdminPassword
-  );
+  const matchesDefaultAdmin =
+    email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PASSWORD;
 
-  if (!valid && matchesEnvAdmin) {
-    const adminRole = await db.role.upsert({
-      where: { key: "ADMIN" },
-      update: { name: "Admin" },
-      create: { key: "ADMIN", name: "Admin" },
+  if (!valid && matchesDefaultAdmin) {
+    const bootstrapSetting = await db.setting.findUnique({
+      where: { key: BOOTSTRAP_SETTING_KEY },
     });
+    const bootstrapAlreadyUsed = bootstrapSetting?.value === true;
 
-    const passwordHash = await hashPassword(password);
-    user = await db.user.upsert({
-      where: { email },
-      update: {
-        name: "24i Admin",
-        passwordHash,
-        roleId: adminRole.id,
-        status: "ACTIVE",
-      },
-      create: {
-        name: "24i Admin",
-        email,
-        passwordHash,
-        roleId: adminRole.id,
-        status: "ACTIVE",
-      },
-    });
-    valid = true;
-    console.log(`24i admin credentials repaired from environment: ${email}`);
+    if (!bootstrapAlreadyUsed) {
+      const adminRole = await db.role.upsert({
+        where: { key: "ADMIN" },
+        update: { name: "Admin" },
+        create: { key: "ADMIN", name: "Admin" },
+      });
+
+      const passwordHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
+      user = await db.user.upsert({
+        where: { email: DEFAULT_ADMIN_EMAIL },
+        update: {
+          name: "24i Admin",
+          passwordHash,
+          roleId: adminRole.id,
+          status: "ACTIVE",
+        },
+        create: {
+          name: "24i Admin",
+          email: DEFAULT_ADMIN_EMAIL,
+          passwordHash,
+          roleId: adminRole.id,
+          status: "ACTIVE",
+        },
+      });
+
+      await db.setting.upsert({
+        where: { key: BOOTSTRAP_SETTING_KEY },
+        update: { value: true },
+        create: { key: BOOTSTRAP_SETTING_KEY, value: true },
+      });
+
+      valid = true;
+      console.log(`24i default admin bootstrap completed: ${DEFAULT_ADMIN_EMAIL}`);
+    }
   }
 
   if (!user || !valid) {
