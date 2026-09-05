@@ -8,45 +8,40 @@ const input = z.object({
   password: z.string().min(8).max(128),
 });
 
-const DEFAULT_ADMIN_EMAIL = "admin@24iproduction.com";
-const DEFAULT_ADMIN_PASSWORD = "23002300";
-const BOOTSTRAP_SETTING_KEY = "default_admin_bootstrap_used";
-
 export async function POST(req: Request) {
-  const parsed = input.safeParse(await req.json());
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  }
+  try {
+    const parsed = input.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
 
-  const email = parsed.data.email.trim().toLowerCase();
-  const password = parsed.data.password;
+    const email = parsed.data.email.trim().toLowerCase();
+    const password = parsed.data.password;
 
-  let user = await db.user.findUnique({ where: { email } });
-  let valid = Boolean(
-    user &&
-      user.status === "ACTIVE" &&
-      (await verifyPassword(user.passwordHash, password))
-  );
+    let user = await db.user.findUnique({ where: { email } });
+    let valid = Boolean(
+      user &&
+        user.status === "ACTIVE" &&
+        (await verifyPassword(user.passwordHash, password))
+    );
 
-  const matchesDefaultAdmin =
-    email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PASSWORD;
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const matchesEnvironmentAdmin =
+      Boolean(adminEmail && adminPassword) &&
+      email === adminEmail &&
+      password === adminPassword;
 
-  if (!valid && matchesDefaultAdmin) {
-    const bootstrapSetting = await db.setting.findUnique({
-      where: { key: BOOTSTRAP_SETTING_KEY },
-    });
-    const bootstrapAlreadyUsed = bootstrapSetting?.value === true;
-
-    if (!bootstrapAlreadyUsed) {
+    if (!valid && matchesEnvironmentAdmin) {
       const adminRole = await db.role.upsert({
         where: { key: "ADMIN" },
         update: { name: "Admin" },
         create: { key: "ADMIN", name: "Admin" },
       });
 
-      const passwordHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
+      const passwordHash = await hashPassword(adminPassword!);
       user = await db.user.upsert({
-        where: { email: DEFAULT_ADMIN_EMAIL },
+        where: { email: adminEmail! },
         update: {
           name: "24i Admin",
           passwordHash,
@@ -55,32 +50,30 @@ export async function POST(req: Request) {
         },
         create: {
           name: "24i Admin",
-          email: DEFAULT_ADMIN_EMAIL,
+          email: adminEmail!,
           passwordHash,
           roleId: adminRole.id,
           status: "ACTIVE",
         },
       });
-
-      await db.setting.upsert({
-        where: { key: BOOTSTRAP_SETTING_KEY },
-        update: { value: true },
-        create: { key: BOOTSTRAP_SETTING_KEY, value: true },
-      });
-
       valid = true;
-      console.log(`24i default admin bootstrap completed: ${DEFAULT_ADMIN_EMAIL}`);
     }
-  }
 
-  if (!user || !valid) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+    if (!user || !valid) {
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+    }
 
-  await db.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  });
-  await createSession(user.id);
-  return NextResponse.json({ ok: true });
+    await db.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+    await createSession(user.id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Login/database error:", error);
+    return NextResponse.json(
+      { error: "Database or server unavailable. Check DATABASE_URL and deployment logs." },
+      { status: 503 }
+    );
+  }
 }
