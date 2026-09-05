@@ -34,7 +34,22 @@ export async function POST(req: Request) {
   const user = await authorize("clients.write");
   const row = await db.$transaction(async (tx) => {
     const client = await tx.client.create({ data: parsed.data });
-    await tx.auditLog.create({ data: { userId: user.id, action: "CLIENT_CREATED", entityType: "Client", entityId: client.id, newValue: parsed.data } });
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "CLIENT_CREATED",
+        entityType: "Client",
+        entityId: client.id,
+        newValue: {
+          brandName: client.brandName,
+          contactName: client.contactName,
+          email: client.email,
+          status: client.status,
+          startDate: client.startDate?.toISOString() || null,
+          contractEndDate: client.contractEndDate?.toISOString() || null,
+        },
+      },
+    });
     return client;
   });
   return NextResponse.json(row, { status: 201 });
