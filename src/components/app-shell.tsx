@@ -13,6 +13,7 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/", label: "Dashboard", permission: "dashboard.read" },
     { href: "/users", label: "Users", permission: "users.read" },
     { href: "/clients", label: client ? "My company" : "Clients", permission: "clients.read" },
+    { href: "/projects", label: "Projects", permission: "projects.read" },
     { href: "/tasks", label: "Tasks", permission: "tasks.read" },
     { href: "/content", label: "Content", permission: "content.read" },
     { href: "/calendar", label: "Calendar", permission: "calendar.read" },
