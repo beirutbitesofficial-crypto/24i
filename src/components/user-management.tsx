@@ -29,6 +29,7 @@ const permissionGroups = [
   ["Tasks", ["tasks.read", "tasks.write", "tasks.update"]],
   ["Content", ["content.read", "content.write", "content.upload", "content.approve", "content.schedule"]],
   ["Calendar & files", ["calendar.read", "calendar.write", "files.read", "files.write", "notifications.read"]],
+  ["Packages", ["packages.read", "packages.write"]],
   ["Finance", ["finance.read", "finance.client.read", "finance.invoices.write", "finance.payments.write", "finance.expenses.write", "finance.salaries.write", "finance.reports.read"]],
   ["System", ["audit.read", "settings.read", "settings.write"]],
 ] as const;
@@ -43,7 +44,7 @@ async function api(url: string, init?: RequestInit) {
 }
 
 export function UserManagement({ initialUsers, clients, initialRoles, actorRole }: Props) {
-  const [users, setUsers] = useState(initialUsers);
+  const [users] = useState(initialUsers);
   const [roles, setRoles] = useState(initialRoles);
   const [selectedId, setSelectedId] = useState(initialUsers[0]?.id || "");
   const [message, setMessage] = useState("");
@@ -150,14 +151,14 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole 
       </div>
     </section>
 
-    <section className="panel">
-      <div className="section-head"><div><span className="eyebrow">RBAC</span><h2>Roles & access</h2></div><span className="muted">Enforced server-side</span></div>
+    {canManageRoles && <section className="panel">
+      <div className="section-head"><div><span className="eyebrow">RBAC</span><h2>Roles & access</h2></div><span className="muted">Admin policy · enforced server-side</span></div>
       <div className="role-tabs">
         {roles.map((role) => <article className="role-card" key={role.key}>
-          <div className="role-title"><div><h3>{role.name}</h3><small>{role.key === "ADMIN" ? "Unrestricted system access" : `${role.permissions.length} permissions`}</small></div>{canManageRoles && role.key !== "ADMIN" && <button type="button" className="secondary small-button" disabled={busy} onClick={() => saveRole(role)}>Save</button>}</div>
-          {role.key === "ADMIN" ? <p className="muted">Admin can access users, roles, clients, production, approvals, files, finance, salaries, audit logs and settings without restriction.</p> : <div className="permission-groups">{permissionGroups.map(([group, perms]) => <fieldset key={group}><legend>{group}</legend>{perms.map((permission) => <label className="check" key={permission}><input type="checkbox" checked={role.permissions.includes(permission)} disabled={!canManageRoles} onChange={(e) => togglePermission(role.key, permission, e.target.checked)} />{pretty(permission)}</label>)}</fieldset>)}</div>}
+          <div className="role-title"><div><h3>{role.name}</h3><small>{role.key === "ADMIN" ? "Unrestricted system access" : `${role.permissions.length} permissions`}</small></div>{role.key !== "ADMIN" && <button type="button" className="secondary small-button" disabled={busy} onClick={() => saveRole(role)}>Save</button>}</div>
+          {role.key === "ADMIN" ? <p className="muted">Admin can access users, roles, clients, production, approvals, files, finance, salaries, audit logs and settings without restriction.</p> : <div className="permission-groups">{permissionGroups.map(([group, perms]) => <fieldset key={group}><legend>{group}</legend>{perms.map((permission) => <label className="check" key={permission}><input type="checkbox" checked={role.permissions.includes(permission)} onChange={(e) => togglePermission(role.key, permission, e.target.checked)} />{pretty(permission)}</label>)}</fieldset>)}</div>}
         </article>)}
       </div>
-    </section>
+    </section>}
   </div>;
 }
