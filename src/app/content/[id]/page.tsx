@@ -23,6 +23,8 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
   if (ids && !ids.includes(content.clientId)) redirect("/content");
 
   const latestCaption = content.captions[0];
+  const canUpload = hasPermission(user, "content.upload") && (user.role.key !== "EDITOR" || content.ownerId === user.id);
+
   return <AppShell user={user} title={content.title} kicker={content.client.brandName.toUpperCase()}>
     <div className="management-stack">
       <div className="metrics"><article><span>Visual</span><b className="metric-text">{content.visualStatus.replaceAll("_", " ")}</b></article><article><span>Caption</span><b className="metric-text">{content.captionStatus.replaceAll("_", " ")}</b></article><article><span>Publishing</span><b className="metric-text">{content.status.replaceAll("_", " ")}</b></article></div>
@@ -35,7 +37,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
 
       <section className="panel"><span className="eyebrow">FEEDBACK</span><h2>Approval history</h2>{content.approvals.length ? content.approvals.map((a) => <article className="approval-line" key={a.id}><div><b>{a.scope}</b><span>{a.state.replaceAll("_", " ")}</span></div><small>{a.decidedAt?.toLocaleString() || a.createdAt.toLocaleString()}</small>{a.notes.map((n) => <p key={n.id}>{n.body}</p>)}</article>) : <p>No approval activity yet.</p>}</section>
 
-      <ContentWorkflow contentId={content.id} canWrite={hasPermission(user, "content.write")} canUpload={hasPermission(user, "content.upload")} canApprove={hasPermission(user, "content.approve")} canSchedule={hasPermission(user, "content.schedule")} isCarousel={content.type === "CAROUSEL"} />
+      <ContentWorkflow contentId={content.id} canWrite={hasPermission(user, "content.write")} canUpload={canUpload} canApprove={hasPermission(user, "content.approve")} canSchedule={hasPermission(user, "content.schedule")} isCarousel={content.type === "CAROUSEL"} />
     </div>
   </AppShell>;
 }
