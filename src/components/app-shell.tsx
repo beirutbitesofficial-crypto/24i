@@ -1,7 +1,6 @@
-import Link from "next/link";
 import type { User, Role } from "@prisma/client";
 import { LanguageToggle } from "@/components/language-toggle";
-import { LogoutButton } from "@/components/logout-button";
+import { BurgerMenu } from "@/components/burger-menu";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type NavItem = { href: string; label: string; permission?: string };
@@ -28,16 +27,19 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/settings", label: ar ? "الإعدادات" : "Settings", permission: "settings.read" },
   ].filter((item) => can(item.permission));
 
-  return <main className="shell" dir={ar ? "rtl" : "ltr"}>
-    <aside>
-      <div className="brand">24i</div>
-      <nav className="desktop-nav">{items.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}</nav>
-      <div className="account-block"><small>{user.name}<br />{user.role.name}</small><LogoutButton label={ar ? "تسجيل الخروج" : "Sign out"} /></div>
-    </aside>
+  return <main className="shell menu-shell" dir={ar ? "rtl" : "ltr"}>
     <section className="workspace">
-      <header><div><span className="eyebrow">{kicker}</span><h1>{title}</h1></div><LanguageToggle language={user.language} /></header>
+      <header className="app-header">
+        <div className="header-main">
+          <BurgerMenu items={items.map(({ href, label }) => ({ href, label }))} userName={user.name} roleName={user.role.name} signOutLabel={ar ? "تسجيل الخروج" : "Sign out"} />
+          <div>
+            <span className="eyebrow">{kicker}</span>
+            <h1>{title}</h1>
+          </div>
+        </div>
+        <LanguageToggle language={user.language} />
+      </header>
       {children}
     </section>
-    <nav className="mobile-nav">{items.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}</nav>
   </main>;
 }
