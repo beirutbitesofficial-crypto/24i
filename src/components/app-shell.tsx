@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { User, Role } from "@prisma/client";
 import { LanguageToggle } from "@/components/language-toggle";
+import { LogoutButton } from "@/components/logout-button";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type NavItem = { href: string; label: string; permission?: string };
@@ -22,14 +23,16 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/calendar", label: ar ? "التقويم" : "Calendar", permission: "calendar.read" },
     { href: "/files", label: ar ? "الملفات" : "Files", permission: "files.read" },
     { href: "/finance", label: ar ? (client ? "المدفوعات" : "المالية") : (client ? "Payments" : "Finance"), permission: client ? "finance.client.read" : "finance.read" },
+    { href: "/reports", label: ar ? "التقارير" : "Reports", permission: "finance.reports.read" },
     { href: "/audit", label: ar ? "سجل التدقيق" : "Audit", permission: "audit.read" },
+    { href: "/settings", label: ar ? "الإعدادات" : "Settings", permission: "settings.read" },
   ].filter((item) => can(item.permission));
 
   return <main className="shell" dir={ar ? "rtl" : "ltr"}>
     <aside>
       <div className="brand">24i</div>
       <nav className="desktop-nav">{items.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}</nav>
-      <small>{user.name}<br />{user.role.name}</small>
+      <div className="account-block"><small>{user.name}<br />{user.role.name}</small><LogoutButton label={ar ? "تسجيل الخروج" : "Sign out"} /></div>
     </aside>
     <section className="workspace">
       <header><div><span className="eyebrow">{kicker}</span><h1>{title}</h1></div><LanguageToggle language={user.language} /></header>
