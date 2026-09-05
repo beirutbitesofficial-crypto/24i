@@ -18,6 +18,7 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/tasks", label: "Tasks", permission: "tasks.read" },
     { href: "/content", label: "Content", permission: "content.read" },
     { href: "/calendar", label: "Calendar", permission: "calendar.read" },
+    { href: "/files", label: "Files", permission: "files.read" },
     { href: "/finance", label: client ? "Payments" : "Finance", permission: client ? "finance.client.read" : "finance.read" },
     { href: "/audit", label: "Audit", permission: "audit.read" },
   ].filter((item) => can(item.permission));
