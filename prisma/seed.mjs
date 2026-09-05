@@ -20,6 +20,21 @@ async function main() {
     });
   }
 
+  const permissions = {
+    MANAGER: ["content.write", "content.approve", "files.write", "files.read"],
+    EDITOR: ["content.write", "files.write", "files.read"],
+    SOCIAL_MEDIA_MANAGER: ["files.read"],
+    CLIENT: ["content.approve", "files.read"]
+  };
+
+  for (const [roleKey, list] of Object.entries(permissions)) {
+    const role = await db.role.findUniqueOrThrow({ where: { key: roleKey } });
+    await db.rolePermission.createMany({
+      data: list.map(permission => ({ roleId: role.id, permission })),
+      skipDuplicates: true
+    });
+  }
+
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
     console.warn("ADMIN_PASSWORD is not set; skipping initial admin seed.");
