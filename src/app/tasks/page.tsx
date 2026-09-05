@@ -1,2 +1,24 @@
-import{requireUser}from"@/lib/auth";import{db}from"@/lib/db";import{AppShell}from"@/components/app-shell";
-export default async function Tasks(){const u=await requireUser(),ids=u.role.key==="CLIENT"?u.clientUsers.map(x=>x.clientId):undefined;const rows=await db.task.findMany({where:ids?{clientId:{in:ids}}:["ADMIN","MANAGER"].includes(u.role.key)?{}:{assignees:{some:{userId:u.id}}},include:{client:true,assignees:{include:{user:true}}},orderBy:{createdAt:"desc"},take:100});return <AppShell user={u} title="Tasks" kicker="WORKLOAD"><div className="panel tablewrap"><table><thead><tr><th>Task</th><th>Client</th><th>Assignees</th><th>Due</th><th>Status</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td><b>{x.title}</b><small>{x.category}</small></td><td>{x.client?.brandName||"—"}</td><td>{x.assignees.map(a=>a.user.name).join(", ")}</td><td>{x.dueAt?.toLocaleString()||"—"}</td><td>{x.status.replaceAll("_"," ")}</td></tr>)}</tbody></table>{!rows.length&&<p>No tasks yet.</p>}</div></AppShell>}
+import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { AppShell } from "@/components/app-shell";
+import { redirect } from "next/navigation";
+
+export default async function Tasks() {
+  const user = await requireUser();
+  if (!hasPermission(user, "tasks.read")) redirect("/");
+  const ids = assignedClientIds(user);
+  const where = user.role.key === "EDITOR"
+    ? { assignees: { some: { userId: user.id } } }
+    : ids ? { clientId: { in: ids } } : {};
+
+  const rows = await db.task.findMany({
+    where,
+    include: { client: true, assignees: { include: { user: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  return <AppShell user={user} title="Tasks" kicker="WORKLOAD">
+    <div className="panel tablewrap"><table><thead><tr><th>Task</th><th>Client</th><th>Assignees</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><b>{x.title}</b><small>{x.category}</small></td><td>{x.client?.brandName || "—"}</td><td>{x.assignees.map((a) => a.user.name).join(", ") || "—"}</td><td>{x.dueAt?.toLocaleString() || "—"}</td><td>{x.priority}</td><td>{x.status.replaceAll("_", " ")}</td></tr>)}</tbody></table>{!rows.length && <p>No tasks yet.</p>}</div>
+  </AppShell>;
+}
