@@ -7,6 +7,7 @@ type InvoiceOption = { id: string; number: string; client: string; remaining: st
 type CategoryOption = { id: string; name: string };
 type EmployeeOption = { id: string; name: string };
 type SalaryOption = { id: string; employee: string; baseSalary: string };
+type PackageOption = { id: string; name: string; price: string; interval: string };
 
 type Props = {
   clients: ClientOption[];
@@ -14,6 +15,8 @@ type Props = {
   categories: CategoryOption[];
   employees: EmployeeOption[];
   salaryProfiles: SalaryOption[];
+  packages: PackageOption[];
+  canPackages: boolean;
   canInvoice: boolean;
   canPayment: boolean;
   canExpense: boolean;
@@ -34,6 +37,8 @@ export function FinanceManager(props: Props) {
   const form = (e: FormEvent<HTMLFormElement>) => new FormData(e.currentTarget);
 
   return <div className="management-stack">{message && <div className="notice">{message}</div>}
+    {props.canPackages && <section className="panel"><span className="eyebrow">PACKAGES</span><h2>Service packages</h2><form className="form-grid compact-form" onSubmit={(e)=>{e.preventDefault();const f=form(e);void run(()=>post("/api/packages",{name:f.get("name"),price:f.get("price"),interval:f.get("interval"),entitlements:{reels:Number(f.get("reels")||0),posts:Number(f.get("posts")||0)}}))}}><label>Package name<input name="name" required/></label><label>Price USD<input name="price" inputMode="decimal" required/></label><label>Interval<select name="interval"><option>MONTHLY</option><option>QUARTERLY</option><option>YEARLY</option><option>ONE_TIME</option></select></label><label>Reels / month<input name="reels" type="number" min="0" defaultValue="0"/></label><label>Posts / month<input name="posts" type="number" min="0" defaultValue="0"/></label><button disabled={busy}>Create package</button></form><hr/><form className="form-grid compact-form" onSubmit={(e)=>{e.preventDefault();const f=form(e);void run(()=>post("/api/client-packages",{clientId:f.get("clientId"),packageId:f.get("packageId"),startsAt:f.get("startsAt"),price:f.get("customPrice")||undefined}))}}><label>Client<select name="clientId" required>{props.clients.map(c=><option key={c.id} value={c.id}>{c.brandName}</option>)}</select></label><label>Package<select name="packageId" required>{props.packages.map(p=><option key={p.id} value={p.id}>{p.name} · ${p.price}/{p.interval}</option>)}</select></label><label>Starts<input name="startsAt" type="date" required/></label><label>Custom price (optional)<input name="customPrice" inputMode="decimal"/></label><button disabled={busy||!props.clients.length||!props.packages.length}>Assign package</button></form></section>}
+
     {props.canInvoice && <section className="panel"><span className="eyebrow">RECEIVABLES</span><h2>Create invoice</h2><form className="form-grid compact-form" onSubmit={(e) => { e.preventDefault(); const f=form(e); void run(() => post("/api/invoices", { clientId:f.get("clientId"),total:f.get("total"),dueDate:f.get("dueDate"),description:f.get("description")||"Monthly service" })); }}><label>Client<select name="clientId" required>{props.clients.map(c=><option key={c.id} value={c.id}>{c.brandName}</option>)}</select></label><label>Total USD<input name="total" inputMode="decimal" required /></label><label>Due date<input name="dueDate" type="date" required /></label><label>Description<input name="description" defaultValue="Monthly service" /></label><button disabled={busy||!props.clients.length}>Create invoice</button></form></section>}
 
     {props.canPayment && <section className="panel"><span className="eyebrow">PAYMENTS</span><h2>Record payment</h2><form className="form-grid compact-form" onSubmit={(e) => { e.preventDefault(); const f=form(e); void run(() => post("/api/payments", { invoiceId:f.get("invoiceId"),amount:f.get("amount"),method:f.get("method"),reference:f.get("reference")||undefined })); }}><label>Invoice<select name="invoiceId" required>{props.invoices.map(i=><option key={i.id} value={i.id}>{i.number} · {i.client} · ${i.remaining} left</option>)}</select></label><label>Amount USD<input name="amount" inputMode="decimal" required /></label><label>Method<select name="method"><option>Cash</option><option>Bank Transfer</option><option>Card</option><option>Other</option></select></label><label>Reference<input name="reference" /></label><button disabled={busy||!props.invoices.length}>Record payment</button></form></section>}
