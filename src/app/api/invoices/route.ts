@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       },
     });
     await tx.financialTransaction.create({ data: { type: "INVOICE", amount: total, invoiceId: row.id, createdById: user.id } });
-    await tx.auditLog.create({ data: { userId: user.id, action: "INVOICE_CREATED", entityType: "Invoice", entityId: row.id, newValue: { number, clientId: client.id, total: total.toString(), dueDate: parsed.data.dueDate } } });
+    await tx.auditLog.create({ data: { userId: user.id, action: "INVOICE_CREATED", entityType: "Invoice", entityId: row.id, newValue: { number, clientId: client.id, total: total.toString(), dueDate: parsed.data.dueDate.toISOString() } } });
     return row;
   });
   return NextResponse.json({ ...invoice, total: invoice.total.toString() }, { status: 201 });
