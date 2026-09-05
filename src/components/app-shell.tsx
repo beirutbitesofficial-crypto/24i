@@ -11,6 +11,7 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
 
   const items: NavItem[] = [
     { href: "/", label: "Dashboard", permission: "dashboard.read" },
+    { href: "/notifications", label: "Notifications", permission: "notifications.read" },
     { href: "/users", label: "Users", permission: "users.read" },
     { href: "/clients", label: client ? "My company" : "Clients", permission: "clients.read" },
     { href: "/projects", label: "Projects", permission: "projects.read" },
