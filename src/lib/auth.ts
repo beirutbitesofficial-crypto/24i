@@ -4,7 +4,10 @@ import { cookies } from "next/headers";
 import { db } from "./db";
 
 const key = () => new TextEncoder().encode(process.env.SESSION_SECRET);
-const scopedRoles = new Set(["CLIENT", "EDITOR", "SOCIAL_MEDIA_MANAGER"]);
+// Only external CLIENT accounts are client-scoped. Internal agency roles can work
+// across the client list, while role permissions and content ownership still
+// control what they can change.
+const scopedRoles = new Set(["CLIENT"]);
 
 export const hashPassword = (password: string) =>
   argon2.hash(password, { type: argon2.argon2id });
