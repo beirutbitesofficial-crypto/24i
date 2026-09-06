@@ -17,10 +17,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const content = await db.contentItem.findUnique({
     where: { id },
-    include: { client: { include: { users: true } }, captions: { orderBy: { version: "desc" }, take: 1 } },
+    include: {
+      client: { include: { users: true } },
+      versions: { orderBy: { version: "desc" }, take: 1 },
+      captions: { orderBy: { version: "desc" }, take: 1 },
+    },
   });
   if (!content) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const user = await authorize("content.write", content.clientId);
+  if (!content.versions[0]) {
+    return NextResponse.json({ error: "Upload the visual / reel / carousel first" }, { status: 400 });
+  }
 
   const row = await db.$transaction(async (tx) => {
     const caption = await tx.captionVersion.create({
@@ -33,12 +41,49 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         createdById: user.id,
       },
     });
-    await tx.contentItem.update({ where: { id }, data: { captionStatus: "WAITING", status: "WAITING_CLIENT_APPROVAL" } });
-    await tx.approval.create({ data: { contentId: id, captionVersionId: caption.id, reviewerId: user.id, state: "WAITING", scope: "CAPTION" } });
-    await tx.auditLog.create({ data: { userId: user.id, action: "CAPTION_VERSION_SUBMITTED", entityType: "ContentItem", entityId: id, newValue: { version: caption.version } } });
+
+    await tx.contentItem.update({
+      where: { id },
+      data: {
+        visualStatus: "WAITING",
+        captionStatus: "WAITING",
+        status: "WAITING_CLIENT_APPROVAL",
+      },
+    });
+
+    // The client reviews the latest visual and latest caption as one package.
+    await tx.approval.create({
+      data: {
+        contentId: id,
+        contentVersionId: content.versions[0].id,
+        captionVersionId: caption.id,
+        reviewerId: user.id,
+        state: "WAITING",
+        scope: "ALL",
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "CONTENT_PACKAGE_SENT_TO_CLIENT",
+        entityType: "ContentItem",
+        entityId: id,
+        newValue: { visualVersion: content.versions[0].version, captionVersion: caption.version },
+      },
+    });
     return caption;
   });
 
-  await notify(content.client.users.map((x) => x.userId), { kind: "APPROVAL", title: "Caption ready", body: `${content.title} caption V${row.version} is ready for approval.`, deepLink: `/content/${id}` });
+  const clientUserIds = content.client.users.map((x) => x.userId);
+  if (clientUserIds.length) {
+    await notify(clientUserIds, {
+      kind: "APPROVAL",
+      title: "Content ready for your approval",
+      body: `${content.title} is ready. Review the visual and caption together, then approve or request changes.`,
+      deepLink: `/content/${id}`,
+    });
+  }
+
   return NextResponse.json(row, { status: 201 });
 }
