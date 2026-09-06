@@ -1,1 +1,1 @@
-{"name":"24i Production","short_name":"24i","start_url":"/","display":"standalone","background_color":"#050607","theme_color":"#008c8c","lang":"en","dir":"auto","icons":[{"src":"/api/app-icon","sizes":"256x256","type":"image/jpeg","purpose":"any"}]}
+{"name":"24i Production","short_name":"24i","start_url":"/","display":"standalone","background_color":"#050607","theme_color":"#008c8c","lang":"en","dir":"auto","icons":[{"src":"/api/app-icon?v=full-logo-1","sizes":"180x180","type":"image/png","purpose":"any"}]}
