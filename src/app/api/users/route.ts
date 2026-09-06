@@ -10,6 +10,7 @@ const createSchema = z.object({
   password: z.string().min(8).max(128),
   roleKey: z.enum(roleKeys),
   clientIds: z.array(z.string()).default([]),
+  clientBrandName: z.string().trim().max(160).optional(),
 });
 
 export async function GET() {
@@ -55,6 +56,22 @@ export async function POST(req: Request) {
 
   const passwordHash = await hashPassword(data.password);
   const user = await db.$transaction(async (tx) => {
+    let clientIds = [...new Set(data.clientIds)];
+
+    // A CLIENT login must always point to a real Client record. If the admin
+    // creates the login first, create a matching client automatically.
+    if (data.roleKey === "CLIENT" && clientIds.length === 0) {
+      const client = await tx.client.create({
+        data: {
+          brandName: data.clientBrandName?.trim() || data.name.trim(),
+          contactName: data.name.trim(),
+          email,
+          status: "ACTIVE",
+        },
+      });
+      clientIds = [client.id];
+    }
+
     const created = await tx.user.create({
       data: {
         name: data.name.trim(),
@@ -62,8 +79,8 @@ export async function POST(req: Request) {
         passwordHash,
         roleId: role.id,
         status: "ACTIVE",
-        clientUsers: data.clientIds.length
-          ? { create: [...new Set(data.clientIds)].map((clientId) => ({ clientId })) }
+        clientUsers: clientIds.length
+          ? { create: clientIds.map((clientId) => ({ clientId })) }
           : undefined,
       },
       include: { role: true, clientUsers: { include: { client: true } } },
@@ -74,7 +91,7 @@ export async function POST(req: Request) {
         action: "USER_CREATED",
         entityType: "User",
         entityId: created.id,
-        newValue: { name: created.name, email: created.email, role: role.key, clientIds: data.clientIds },
+        newValue: { name: created.name, email: created.email, role: role.key, clientIds },
       },
     });
     return created;
