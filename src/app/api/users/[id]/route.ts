@@ -10,6 +10,7 @@ const patchSchema = z.object({
   status: z.enum(["ACTIVE","DISABLED","PENDING"]).optional(),
   password: z.string().min(8).max(128).optional(),
   clientIds: z.array(z.string()).optional(),
+  clientBrandName: z.string().trim().max(160).optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -42,6 +43,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     status: target.status,
     clientIds: target.clientUsers.map((x) => x.clientId),
   };
+  const effectiveRole = parsed.data.roleKey ?? target.role.key;
 
   const updated = await db.$transaction(async (tx) => {
     const user = await tx.user.update({
@@ -56,7 +58,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (parsed.data.clientIds) {
       await tx.clientUser.deleteMany({ where: { userId: id } });
-      const unique = [...new Set(parsed.data.clientIds)];
+      let unique = [...new Set(parsed.data.clientIds)];
+
+      // Repair legacy CLIENT logins that were created without a Client record.
+      if (effectiveRole === "CLIENT" && unique.length === 0) {
+        const client = await tx.client.create({
+          data: {
+            brandName: parsed.data.clientBrandName?.trim() || parsed.data.name?.trim() || target.name,
+            contactName: parsed.data.name?.trim() || target.name,
+            email: target.email,
+            status: "ACTIVE",
+          },
+        });
+        unique = [client.id];
+      }
+
       if (unique.length) {
         await tx.clientUser.createMany({ data: unique.map((clientId) => ({ userId: id, clientId })) });
       }
@@ -71,7 +87,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         previousValue: before,
         newValue: {
           name: parsed.data.name ?? target.name,
-          role: parsed.data.roleKey ?? target.role.key,
+          role: effectiveRole,
           status: parsed.data.status ?? target.status,
           clientIds: parsed.data.clientIds ?? before.clientIds,
           passwordChanged: Boolean(parsed.data.password),
