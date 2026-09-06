@@ -6,6 +6,7 @@ type Props = {
   contentId: string;
   clientId: string;
   currentVersion: number;
+  currentCaptionVersion: number;
   canWrite: boolean;
   canApprove: boolean;
   canSchedule: boolean;
@@ -14,6 +15,10 @@ type Props = {
   isClient: boolean;
   storageReady: boolean;
   visualStatus: string;
+  contentStatus: string;
+  captionText?: string | null;
+  captionHashtags?: string | null;
+  captionCta?: string | null;
 };
 
 async function request(url: string, body: unknown) {
@@ -26,7 +31,24 @@ async function request(url: string, body: unknown) {
   return data;
 }
 
-export function ContentWorkflow({ contentId, clientId, currentVersion, canWrite, canApprove, canSchedule, canUpload, isCarousel, isClient, storageReady, visualStatus }: Props) {
+export function ContentWorkflow({
+  contentId,
+  clientId,
+  currentVersion,
+  currentCaptionVersion,
+  canWrite,
+  canApprove,
+  canSchedule,
+  canUpload,
+  isCarousel,
+  isClient,
+  storageReady,
+  visualStatus,
+  contentStatus,
+  captionText,
+  captionHashtags,
+  captionCta,
+}: Props) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [clientNote, setClientNote] = useState("");
@@ -45,16 +67,40 @@ export function ContentWorkflow({ contentId, clientId, currentVersion, canWrite,
     }
   }
 
+  async function uploadAsset(file: File) {
+    const mimeType = file.type || "application/octet-stream";
+    const signRes = await fetch("/api/uploads/sign", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clientId, name: file.name, type: mimeType, size: file.size }),
+    });
+    const signed = await signRes.json().catch(() => ({}));
+    if (!signRes.ok) throw new Error(signed.error || "Could not prepare upload.");
+
+    const putRes = await fetch(signed.url, { method: "PUT", headers: { "content-type": mimeType }, body: file });
+    if (!putRes.ok) throw new Error(`Upload failed for ${file.name}.`);
+
+    const completeRes = await fetch("/api/uploads/complete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clientId, contentId, key: signed.key, originalName: file.name, mimeType, size: String(file.size) }),
+    });
+    const saved = await completeRes.json().catch(() => ({}));
+    if (!completeRes.ok) throw new Error(saved.error || "Could not register uploaded file.");
+    return saved.id as string;
+  }
+
   function caption(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    void run(() => request(`/api/content/${contentId}/captions`, { caption: f.get("caption"), hashtags: f.get("hashtags") || undefined, cta: f.get("cta") || undefined }), "Caption sent for approval.");
-  }
-
-  function approve(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    void run(() => request("/api/approvals", { contentId, scope: f.get("scope"), decision: f.get("decision"), note: f.get("note") || undefined }));
+    void run(
+      () => request(`/api/content/${contentId}/captions`, {
+        caption: f.get("caption"),
+        hashtags: f.get("hashtags") || undefined,
+        cta: f.get("cta") || undefined,
+      }),
+      "Visual + caption sent to the client for approval."
+    );
   }
 
   function schedule(e: FormEvent<HTMLFormElement>) {
@@ -69,36 +115,28 @@ export function ContentWorkflow({ contentId, clientId, currentVersion, canWrite,
     const form = e.currentTarget;
     const data = new FormData(form);
     const input = form.elements.namedItem("file") as HTMLInputElement;
-    const file = input.files?.[0];
+    const files = Array.from(input.files || []);
     const notes = String(data.get("notes") || "").trim();
 
-    if (!file) {
-      setMessage("Choose a video or image first.");
+    if (!files.length) {
+      setMessage(isCarousel ? "Choose the carousel images first." : "Choose a video or image first.");
       return;
     }
 
     void run(async () => {
-      const signRes = await fetch("/api/uploads/sign", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ clientId, name: file.name, type: file.type, size: file.size }),
-      });
-      const signed = await signRes.json().catch(() => ({}));
-      if (!signRes.ok) throw new Error(signed.error || "Could not prepare upload.");
-
-      const putRes = await fetch(signed.url, { method: "PUT", headers: { "content-type": file.type }, body: file });
-      if (!putRes.ok) throw new Error("Video upload failed.");
-
-      const completeRes = await fetch("/api/uploads/complete", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ clientId, contentId, key: signed.key, originalName: file.name, mimeType: file.type, size: String(file.size) }),
-      });
-      const saved = await completeRes.json().catch(() => ({}));
-      if (!completeRes.ok) throw new Error(saved.error || "Could not register uploaded file.");
-
-      await request(`/api/content/${contentId}/versions`, { fileId: saved.id, notes: notes || undefined });
-    }, `V${currentVersion + 1} uploaded and sent to the client for approval.`);
+      if (isCarousel) {
+        const slides: { fileId: string; position: number }[] = [];
+        for (let i = 0; i < files.length; i += 1) {
+          const fileId = await uploadAsset(files[i]);
+          slides.push({ fileId, position: i });
+        }
+        await request(`/api/content/${contentId}/versions`, { slides, notes: notes || undefined });
+      } else {
+        if (files.length !== 1) throw new Error("Choose one file for this content type.");
+        const fileId = await uploadAsset(files[0]);
+        await request(`/api/content/${contentId}/versions`, { fileId, notes: notes || undefined });
+      }
+    }, `V${currentVersion + 1} uploaded. The Social Media Manager was notified to add the caption.`);
   }
 
   function clientDecision(decision: "APPROVED" | "REVISION_REQUESTED") {
@@ -107,46 +145,66 @@ export function ContentWorkflow({ contentId, clientId, currentVersion, canWrite,
       return;
     }
     void run(
-      () => request("/api/approvals", { contentId, scope: "VISUAL", decision, note: clientNote.trim() || undefined }),
-      decision === "APPROVED" ? "Approved. The editor and social media manager were notified." : "Revision requested. Your notes were sent to the team."
+      () => request("/api/approvals", { contentId, scope: "ALL", decision, note: clientNote.trim() || undefined }),
+      decision === "APPROVED"
+        ? "Visual and caption approved. The Editor and Social Media Manager were notified."
+        : "Revision requested. Your notes were sent to the Editor and Social Media Manager."
     );
   }
 
   if (!canWrite && !canApprove && !canSchedule && !canUpload) return null;
 
+  const readyForClient = isClient && canApprove && contentStatus === "WAITING_CLIENT_APPROVAL" && currentVersion > 0 && currentCaptionVersion > 0 && !!captionText;
+
   return <div className="management-stack">
     {message && <div className="notice">{message}</div>}
 
-    {canUpload && !isCarousel && <section className="panel">
+    {canUpload && <section className="panel">
       <span className="eyebrow">PRODUCTION</span>
-      <h2>Upload video / visual</h2>
-      <p className="muted">The client receives a notification as soon as you submit a new version.</p>
+      <h2>{isCarousel ? "Upload carousel" : "Upload reel / post visual"}</h2>
+      <p className="muted">After upload, the Social Media Manager gets the notification first. The client is notified only after the caption is ready.</p>
       {!storageReady && <div className="notice">Storage is not configured yet, so direct upload is temporarily disabled.</div>}
       <form className="compact-form upload-version-form" onSubmit={uploadVersion}>
-        <label>Video or image<input name="file" type="file" accept="video/*,image/*" required /></label>
-        <label>Version notes<textarea name="notes" rows={3} placeholder="Optional note for this version" /></label>
-        <button disabled={busy || !storageReady}>{busy ? "Uploading…" : `Upload V${currentVersion + 1} & send to client`}</button>
+        <label>{isCarousel ? "Carousel images" : "Video or image"}
+          <input name="file" type="file" accept={isCarousel ? "image/*" : "video/*,image/*"} multiple={isCarousel} required />
+        </label>
+        <label>Version notes<textarea name="notes" rows={3} placeholder="Optional production note" /></label>
+        <button disabled={busy || !storageReady}>{busy ? "Uploading…" : `Upload V${currentVersion + 1} & send to SMM`}</button>
       </form>
     </section>}
 
-    {canWrite && <section className="panel">
-      <span className="eyebrow">COPY</span><h2>Submit caption</h2>
-      <form className="compact-form" onSubmit={caption}><label>Caption<textarea name="caption" rows={6} required /></label><label>Hashtags<textarea name="hashtags" rows={2} /></label><label>CTA<input name="cta" /></label><button disabled={busy}>Submit caption for approval</button></form>
+    {canWrite && !isClient && <section className="panel">
+      <span className="eyebrow">SOCIAL MEDIA</span>
+      <h2>Add caption & send full content to client</h2>
+      {currentVersion < 1 && <div className="notice">Waiting for the Editor to upload the visual first.</div>}
+      <form className="compact-form" onSubmit={caption}>
+        <label>Caption<textarea name="caption" rows={6} defaultValue={captionText || ""} required /></label>
+        <label>Hashtags<textarea name="hashtags" rows={2} defaultValue={captionHashtags || ""} /></label>
+        <label>CTA<input name="cta" defaultValue={captionCta || ""} /></label>
+        <button disabled={busy || currentVersion < 1}>{busy ? "Sending…" : "Send visual + caption to client"}</button>
+      </form>
     </section>}
 
     {isClient && canApprove && <section className="panel client-review-card">
-      <span className="eyebrow">YOUR REVIEW</span>
-      <h2>{visualStatus === "WAITING" ? "Approve this video?" : visualStatus.replaceAll("_", " ")}</h2>
-      {visualStatus === "WAITING" ? <>
-        <label>Notes<textarea value={clientNote} onChange={(e) => setClientNote(e.target.value)} rows={4} placeholder="Only required if you want changes" /></label>
+      <span className="eyebrow">YOUR APPROVAL</span>
+      {readyForClient ? <>
+        <h2>Review visual + caption together</h2>
+        <div className="client-caption-preview">
+          <span className="muted">Caption V{currentCaptionVersion}</span>
+          <p>{captionText}</p>
+          {captionHashtags && <p className="muted">{captionHashtags}</p>}
+          {captionCta && <p><b>CTA:</b> {captionCta}</p>}
+        </div>
+        <label>Revision notes<textarea value={clientNote} onChange={(e) => setClientNote(e.target.value)} rows={4} placeholder="Only required if you want changes" /></label>
         <div className="review-actions">
-          <button type="button" disabled={busy} onClick={() => clientDecision("APPROVED")}>Approve</button>
+          <button type="button" disabled={busy} onClick={() => clientDecision("APPROVED")}>Approve visual + caption</button>
           <button type="button" className="revision-button" disabled={busy} onClick={() => clientDecision("REVISION_REQUESTED")}>Request revision</button>
         </div>
-      </> : <p className="muted">Your latest decision is saved. You’ll be notified when a new version is ready.</p>}
+      </> : <>
+        <h2>{visualStatus === "APPROVED" ? "Approved" : "Not ready for approval yet"}</h2>
+        <p className="muted">The Social Media Manager will send the complete visual + caption package when it is ready.</p>
+      </>}
     </section>}
-
-    {!isClient && canApprove && <section className="panel"><span className="eyebrow">REVIEW</span><h2>Approve or request revision</h2><form className="form-grid compact-form" onSubmit={approve}><label>Scope<select name="scope"><option value="VISUAL">Visual / video</option><option value="CAPTION">Caption</option><option value="ALL">All</option></select></label><label>Decision<select name="decision"><option value="APPROVED">Approve</option><option value="REVISION_REQUESTED">Request revision</option></select></label><label className="full-field">Note<textarea name="note" rows={3} placeholder="Required when requesting a revision" /></label><button disabled={busy}>Submit decision</button></form></section>}
 
     {canSchedule && <section className="panel"><span className="eyebrow">PUBLISHING</span><h2>Schedule approved content</h2><form className="form-grid compact-form" onSubmit={schedule}><label>Date & time<input name="scheduledAt" type="datetime-local" required /></label><button disabled={busy}>Schedule</button></form></section>}
   </div>;
