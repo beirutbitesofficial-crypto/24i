@@ -1,8 +1,9 @@
-const CACHE="24i-shell-v3";
+const CACHE="24i-shell-v4";
+const APP_ICON="/api/app-icon?v=full-logo-1";
 
 self.addEventListener("install",(event)=>{
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then((cache)=>cache.addAll(["/","/offline.html","/api/app-icon"])));
+  event.waitUntil(caches.open(CACHE).then((cache)=>cache.addAll(["/","/offline.html",APP_ICON])));
 });
 
 self.addEventListener("activate",(event)=>{
@@ -23,8 +24,8 @@ self.addEventListener("push",(event)=>{
   const data=event.data?.json()||{};
   event.waitUntil(self.registration.showNotification(data.title||"24i Production",{
     body:data.body,
-    icon:"/api/app-icon",
-    badge:"/api/app-icon",
+    icon:APP_ICON,
+    badge:APP_ICON,
     data:{url:data.deepLink||"/"}
   }));
 });
