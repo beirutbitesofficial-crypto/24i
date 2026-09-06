@@ -73,6 +73,8 @@ export function PwaRegister() {
           if (active) setState("install");
           return;
         }
+
+        // Installed web app: show our permission modal immediately on first/open launch.
         if (active) setState("prompt");
       } catch {
         if (active) setState("error");
@@ -100,11 +102,26 @@ export function PwaRegister() {
   }
 
   if (state === "hidden") return null;
-  return <div className="push-setup" role="status">
-    <div>
-      <b>{state === "install" ? "Install 24i first" : state === "denied" ? "Notifications are blocked" : state === "error" ? "Notifications need setup" : "Turn on notifications"}</b>
-      <span>{state === "install" ? "Add 24i to your Home Screen, open the app, then enable notifications." : state === "denied" ? "Allow notifications for 24i from your iPhone settings." : state === "error" ? "Check the VAPID settings on Hostinger and try again." : "Get approval, revision and task alerts even when the app is closed."}</span>
-    </div>
-    {state === "prompt" && <button type="button" disabled={busy} onClick={() => void enable()}>{busy ? "Enabling…" : "Enable notifications"}</button>}
+
+  if (state === "install") {
+    return <div className="push-install-hint" role="status">
+      <b>Add 24i to Home Screen</b>
+      <span>Open it from the Home Screen to enable notifications.</span>
+    </div>;
+  }
+
+  return <div className="push-modal-backdrop" role="dialog" aria-modal="true" aria-label="24i notifications">
+    <section className="push-modal">
+      <img src="/api/app-icon?v=3" alt="24i Production" className="push-modal-logo" />
+      <div className="push-modal-copy">
+        <span className="eyebrow">24i PRODUCTION</span>
+        <h2>{state === "denied" ? "Notifications are blocked" : state === "error" ? "Notifications need setup" : "Allow notifications?"}</h2>
+        <p>{state === "denied" ? "Enable notifications for 24i from your iPhone Settings to receive alerts." : state === "error" ? "Push notifications are not fully configured on the server yet." : "Get instant alerts for approvals, revisions, captions and assigned tasks even when 24i is closed."}</p>
+      </div>
+      {state === "prompt" ? <div className="push-modal-actions">
+        <button type="button" className="secondary" disabled={busy} onClick={() => setState("hidden")}>Not now</button>
+        <button type="button" disabled={busy} onClick={() => void enable()}>{busy ? "Enabling…" : "Allow notifications"}</button>
+      </div> : <button type="button" className="secondary" onClick={() => setState("hidden")}>Close</button>}
+    </section>
   </div>;
 }
