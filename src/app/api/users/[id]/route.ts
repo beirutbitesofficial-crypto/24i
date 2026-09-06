@@ -60,17 +60,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       await tx.clientUser.deleteMany({ where: { userId: id } });
       let unique = [...new Set(parsed.data.clientIds)];
 
-      // Repair legacy CLIENT logins that were created without a Client record.
+      // CLIENT accounts must always stay linked to a Client record.
       if (effectiveRole === "CLIENT" && unique.length === 0) {
-        const client = await tx.client.create({
-          data: {
-            brandName: parsed.data.clientBrandName?.trim() || parsed.data.name?.trim() || target.name,
-            contactName: parsed.data.name?.trim() || target.name,
-            email: target.email,
-            status: "ACTIVE",
-          },
-        });
-        unique = [client.id];
+        if (target.clientUsers.length) {
+          unique = target.clientUsers.map((x) => x.clientId);
+        } else {
+          const client = await tx.client.create({
+            data: {
+              brandName: parsed.data.clientBrandName?.trim() || parsed.data.name?.trim() || target.name,
+              contactName: parsed.data.name?.trim() || target.name,
+              email: target.email,
+              status: "ACTIVE",
+            },
+          });
+          unique = [client.id];
+        }
       }
 
       if (unique.length) {
