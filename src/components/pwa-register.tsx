@@ -50,6 +50,13 @@ export function PwaRegister() {
     void (async () => {
       if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
       try {
+        const config = await fetch("/api/push/public-key", { cache: "no-store" });
+        if (config.status === 401) return;
+        if (!config.ok) {
+          if (active) setState("error");
+          return;
+        }
+
         const reg = await navigator.serviceWorker.register("/sw.js");
         registration.current = reg;
 
