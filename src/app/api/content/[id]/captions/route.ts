@@ -18,7 +18,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const content = await db.contentItem.findUnique({
     where: { id },
     include: {
-      client: { include: { users: true } },
+      client: {
+        include: {
+          users: { include: { user: { include: { role: true } } } },
+        },
+      },
       versions: { orderBy: { version: "desc" }, take: 1 },
       captions: { orderBy: { version: "desc" }, take: 1 },
     },
@@ -51,7 +55,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
     });
 
-    // The client reviews the latest visual and latest caption as one package.
     await tx.approval.create({
       data: {
         contentId: id,
@@ -75,7 +78,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return caption;
   });
 
-  const clientUserIds = content.client.users.map((x) => x.userId);
+  const clientUserIds = content.client.users
+    .filter((x) => x.user.role.key === "CLIENT" && x.user.status === "ACTIVE")
+    .map((x) => x.userId);
+
   if (clientUserIds.length) {
     await notify(clientUserIds, {
       kind: "APPROVAL",
