@@ -85,8 +85,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (clientUserIds.length) {
     await notify(clientUserIds, {
       kind: "APPROVAL",
-      title: "Content ready for your approval",
-      body: `${content.title} is ready. Review the visual and caption together, then approve or request changes.`,
+      title: "Content ready for approval",
+      body: `${user.name} prepared ${content.title}. Review the visual + caption, then approve or request changes.`,
       deepLink: `/content/${id}`,
     });
   }
