@@ -33,16 +33,26 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
 
   const latestVersion = content.versions[0];
   const latestCaption = content.captions[0];
-  const latestFile = latestVersion?.fileId ? await db.fileObject.findFirst({ where: { id: latestVersion.fileId, deletedAt: null } }) : null;
-  const slideIds = latestVersion?.slides.map((slide) => slide.fileId) || [];
-  const slideFiles = slideIds.length ? await db.fileObject.findMany({ where: { id: { in: slideIds }, deletedAt: null } }) : [];
-  const slideFileMap = new Map(slideFiles.map((file) => [file.id, file]));
+  const activeFiles = await db.fileObject.findMany({
+    where: { contentId: content.id, deletedAt: null },
+  });
+  const activeFileMap = new Map(activeFiles.map((file) => [file.id, file]));
+  const latestFile = latestVersion?.fileId ? activeFileMap.get(latestVersion.fileId) || null : null;
+  const slideFileMap = activeFileMap;
 
   const latestRevision = content.approvals.find((a) => a.state === "REVISION_REQUESTED" && a.notes.length);
   const canUpload = hasPermission(user, "content.upload") && (user.role.key !== "EDITOR" || content.ownerId === user.id);
   const storageReady = Boolean(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY && process.env.S3_BUCKET);
   const isClient = user.role.key === "CLIENT";
   const isCarousel = content.type === "CAROUSEL";
+  const reviewResolved = content.status === "APPROVED" || content.status === "REVISION_REQUESTED";
+  const latestMediaPurged = Boolean(
+    latestVersion && reviewResolved && (
+      isCarousel
+        ? latestVersion.slides.length > 0 && !latestVersion.slides.some((slide) => activeFileMap.has(slide.fileId))
+        : latestVersion.fileId && !latestFile
+    )
+  );
   const s = (value: string) => ar ? (statusAr[value] || value.replaceAll("_", " ")) : value.replaceAll("_", " ");
 
   const workflow = <ContentWorkflow
@@ -66,7 +76,10 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
           {!isClient && latestVersion && <span className="muted">{ar ? `رفعها ${latestVersion.uploadedBy.name}` : `Uploaded by ${latestVersion.uploadedBy.name}`}</span>}
         </div>
 
-        {isCarousel && latestVersion?.slides.length ? <div className="carousel-review-grid">
+        {latestMediaPurged ? <div className="review-empty">
+          <b>{ar ? "اكتملت المراجعة" : "Review completed"}</b>
+          <span>{ar ? "تم حذف ملف الميديا تلقائياً بعد قرار العميل لتوفير مساحة التخزين." : "The media file was automatically removed after the client decision to save storage."}</span>
+        </div> : isCarousel && latestVersion?.slides.length ? <div className="carousel-review-grid">
           {latestVersion.slides.map((slide) => {
             const file = slideFileMap.get(slide.fileId);
             if (!file) return <div className="review-empty" key={slide.id}>{ar ? `السلايد ${slide.position + 1} غير متوفر` : `Slide ${slide.position + 1} unavailable`}</div>;
@@ -101,7 +114,10 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
         <section className="panel tablewrap">
           <span className="eyebrow">{ar ? "النسخ" : "VERSIONS"}</span><h2>{ar ? "سجل الإنتاج" : "Production history"}</h2>
           <table><thead><tr><th>{ar ? "النسخة" : "Version"}</th><th>{ar ? "رفعها" : "Uploaded by"}</th><th>{ar ? "التاريخ" : "Date"}</th><th>{ar ? "ملاحظات" : "Notes"}</th><th>{ar ? "الملفات" : "Files"}</th></tr></thead><tbody>
-            {content.versions.map((v) => <tr key={v.id}><td>V{v.version}</td><td>{v.uploadedBy.name}</td><td>{v.createdAt.toLocaleString()}</td><td>{v.notes || "—"}</td><td>{v.fileId ? <a href={`/api/files/${v.fileId}/download`}>{ar ? "فتح" : "Open"}</a> : v.slides.length ? `${v.slides.length} ${ar ? "سلايد" : "slides"}` : "—"}</td></tr>)}
+            {content.versions.map((v) => {
+              const activeSlides = v.slides.filter((slide) => activeFileMap.has(slide.fileId)).length;
+              return <tr key={v.id}><td>V{v.version}</td><td>{v.uploadedBy.name}</td><td>{v.createdAt.toLocaleString()}</td><td>{v.notes || "—"}</td><td>{v.fileId ? (activeFileMap.has(v.fileId) ? <a href={`/api/files/${v.fileId}/download`}>{ar ? "فتح" : "Open"}</a> : (ar ? "تمت إزالته بعد المراجعة" : "Removed after review")) : v.slides.length ? (activeSlides ? `${activeSlides}/${v.slides.length} ${ar ? "سلايد متوفر" : "slides available"}` : (ar ? "تمت إزالتها بعد المراجعة" : "Removed after review")) : "—"}</td></tr>;
+            })}
           </tbody></table>
           {!content.versions.length && <p>{ar ? "ما في نسخ إنتاج بعد." : "No production versions yet."}</p>}
         </section>
