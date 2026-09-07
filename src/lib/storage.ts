@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "node:crypto";
 
@@ -52,4 +52,9 @@ export async function signUpload(clientId: string, name: string, type: string, s
 
 export async function signDownload(key: string) {
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 120 });
+}
+
+export async function deleteStoredObject(key: string) {
+  if (!bucket) throw new Error("STORAGE_NOT_CONFIGURED");
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
