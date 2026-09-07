@@ -5,7 +5,7 @@ import { BurgerMenu } from "@/components/burger-menu";
 import { ArabicUi } from "@/components/arabic-ui";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
-type NavItem = { href: string; label: string; permission?: string };
+type NavItem = { href: string; label: string; permission?: string; hideForClient?: boolean };
 
 const arTitles: Record<string, string> = {
   Dashboard: "لوحة التحكم",
@@ -62,12 +62,12 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/tasks", label: ar ? "المهام" : "Tasks", permission: "tasks.read" },
     { href: "/content", label: ar ? "المحتوى" : "Content", permission: "content.read" },
     { href: "/calendar", label: ar ? "التقويم" : "Calendar", permission: "calendar.read" },
-    { href: "/files", label: ar ? "الملفات" : "Files", permission: "files.read" },
+    { href: "/files", label: ar ? "الملفات" : "Files", permission: "files.read", hideForClient: true },
     { href: "/finance", label: ar ? (client ? "المدفوعات" : "المالية") : (client ? "Payments" : "Finance"), permission: client ? "finance.client.read" : "finance.read" },
     { href: "/reports", label: ar ? "التقارير" : "Reports", permission: "finance.reports.read" },
     { href: "/audit", label: ar ? "سجل التدقيق" : "Audit", permission: "audit.read" },
     { href: "/settings", label: ar ? "الإعدادات" : "Settings", permission: "settings.read" },
-  ].filter((item) => can(item.permission));
+  ].filter((item) => can(item.permission) && !(client && item.hideForClient));
 
   const displayTitle = ar ? (arTitles[title] || title) : title;
   const displayKicker = ar ? (arKickers[kicker] || kicker) : kicker;
