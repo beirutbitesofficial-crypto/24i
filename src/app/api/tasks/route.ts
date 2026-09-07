@@ -22,9 +22,6 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const user = await authorize("tasks.write", parsed.data.clientId);
-  if (user.role.key === "SOCIAL_MEDIA_MANAGER" && !parsed.data.clientId) {
-    return NextResponse.json({ error: "Social Media Managers must create tasks inside an assigned client." }, { status: 403 });
-  }
 
   const { assigneeIds: rawAssigneeIds, ...data } = parsed.data;
   const assigneeIds = [...new Set(rawAssigneeIds)];
