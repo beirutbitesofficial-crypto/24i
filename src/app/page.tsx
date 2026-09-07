@@ -8,6 +8,9 @@ export default async function Home() {
   const user = await currentUser();
   if (!user) return <main className="login"><section><div className="logo">24i</div><h1>Agency work, in one place.</h1><p>Sign in to manage production, approvals, calendars and finance.</p><LoginForm /></section></main>;
 
+  const ar = user.language === "AR";
+  const firstName = user.name.split(" ")[0];
+  const greeting = ar ? `أهلاً، ${firstName}` : `Good morning, ${firstName}`;
   const clientIds = assignedClientIds(user);
   const scope = clientIds ? { clientId: { in: clientIds } } : {};
   const approvalsPromise = db.contentItem.count({ where: { ...scope, status: "WAITING_CLIENT_APPROVAL" } });
@@ -21,14 +24,14 @@ export default async function Home() {
       db.contentItem.count({ where: { ...scope, status: "SCHEDULED" } }),
       notificationsPromise,
     ]);
-    return <AppShell user={user} title={`Good morning, ${user.name.split(" ")[0]}`} kicker="TODAY">
+    return <AppShell user={user} title={greeting} kicker="TODAY">
       <div className="metrics">
-        <article><span>Waiting approval</span><b>{approvals}</b></article>
-        <article><span>Revisions</span><b>{revisions}</b></article>
-        <article><span>Scheduled content</span><b>{scheduled}</b></article>
+        <article><span>{ar ? "بانتظار موافقتك" : "Waiting approval"}</span><b>{approvals}</b></article>
+        <article><span>{ar ? "طلبات التعديل" : "Revisions"}</span><b>{revisions}</b></article>
+        <article><span>{ar ? "محتوى مجدول" : "Scheduled content"}</span><b>{scheduled}</b></article>
       </div>
-      <h2>Action center</h2>
-      <div className="panel">{notifications.length ? notifications.map((n) => <Link key={n.id} href={n.deepLink}><b>{n.title}</b><span>{n.body}</span></Link>) : <p>You’re all caught up.</p>}</div>
+      <div className="section-head"><div><span className="eyebrow">{ar ? "المطلوب منك" : "YOUR ACTIONS"}</span><h2>{ar ? "مركز المتابعة" : "Action center"}</h2></div></div>
+      <div className="panel">{notifications.length ? notifications.map((n) => <Link key={n.id} href={n.deepLink}><b>{n.title}</b><span>{n.body}</span></Link>) : <p>{ar ? "ما في شي مطلوب منك حالياً ✅" : "You’re all caught up. ✅"}</p>}</div>
     </AppShell>;
   }
 
@@ -39,13 +42,13 @@ export default async function Home() {
     db.task.count({ where: taskWhere }), approvalsPromise, revisionsPromise, notificationsPromise,
   ]);
 
-  return <AppShell user={user} title={`Good morning, ${user.name.split(" ")[0]}`} kicker="TODAY">
+  return <AppShell user={user} title={greeting} kicker="TODAY">
     <div className="metrics">
-      <article><span>Open tasks</span><b>{tasks}</b></article>
-      <article><span>Waiting approval</span><b>{approvals}</b></article>
-      <article><span>Revisions</span><b>{revisions}</b></article>
+      <article><span>{ar ? "مهام مفتوحة" : "Open tasks"}</span><b>{tasks}</b></article>
+      <article><span>{ar ? "بانتظار الموافقة" : "Waiting approval"}</span><b>{approvals}</b></article>
+      <article><span>{ar ? "طلبات تعديل" : "Revisions"}</span><b>{revisions}</b></article>
     </div>
-    <h2>Action center</h2>
-    <div className="panel">{notifications.length ? notifications.map((n) => <Link key={n.id} href={n.deepLink}><b>{n.title}</b><span>{n.body}</span></Link>) : <p>You’re all caught up.</p>}</div>
+    <div className="section-head"><div><span className="eyebrow">{ar ? "الأولوية" : "PRIORITY"}</span><h2>{ar ? "مركز المتابعة" : "Action center"}</h2></div></div>
+    <div className="panel">{notifications.length ? notifications.map((n) => <Link key={n.id} href={n.deepLink}><b>{n.title}</b><span>{n.body}</span></Link>) : <p>{ar ? "كل شي مرتب، ما في تنبيهات جديدة ✅" : "You’re all caught up. ✅"}</p>}</div>
   </AppShell>;
 }
