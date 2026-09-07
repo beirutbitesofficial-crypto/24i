@@ -19,6 +19,7 @@ type Props = {
   captionText?: string | null;
   captionHashtags?: string | null;
   captionCta?: string | null;
+  ar?: boolean;
 };
 
 async function request(url: string, body: unknown) {
@@ -32,61 +33,42 @@ async function request(url: string, body: unknown) {
 }
 
 export function ContentWorkflow({
-  contentId,
-  clientId,
-  currentVersion,
-  currentCaptionVersion,
-  canWrite,
-  canApprove,
-  canSchedule,
-  canUpload,
-  isCarousel,
-  isClient,
-  storageReady,
-  visualStatus,
-  contentStatus,
-  captionText,
-  captionHashtags,
-  captionCta,
+  contentId, clientId, currentVersion, currentCaptionVersion, canWrite, canApprove, canSchedule, canUpload,
+  isCarousel, isClient, storageReady, visualStatus, contentStatus, captionText, captionHashtags, captionCta, ar = false,
 }: Props) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [clientNote, setClientNote] = useState("");
 
-  async function run(fn: () => Promise<unknown>, success = "Saved successfully.") {
-    setBusy(true);
-    setMessage("");
+  async function run(fn: () => Promise<unknown>, success = ar ? "تم الحفظ بنجاح." : "Saved successfully.") {
+    setBusy(true); setMessage("");
     try {
       await fn();
       setMessage(success);
       window.location.reload();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Request failed");
-    } finally {
-      setBusy(false);
-    }
+      setMessage(err instanceof Error ? err.message : ar ? "تعذّر تنفيذ الطلب" : "Request failed");
+    } finally { setBusy(false); }
   }
 
   async function uploadAsset(file: File) {
     const mimeType = file.type || "application/octet-stream";
     const signRes = await fetch("/api/uploads/sign", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
+      method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ clientId, name: file.name, type: mimeType, size: file.size }),
     });
     const signed = await signRes.json().catch(() => ({}));
-    if (!signRes.ok) throw new Error(signed.error || "Could not prepare upload.");
+    if (!signRes.ok) throw new Error(signed.error || (ar ? "تعذّر تجهيز الرفع." : "Could not prepare upload."));
 
     const putRes = await fetch(signed.url, { method: "PUT", headers: { "content-type": mimeType }, body: file });
-    if (!putRes.ok) throw new Error(`Upload failed for ${file.name}.`);
+    if (!putRes.ok) throw new Error(ar ? `فشل رفع ${file.name}.` : `Upload failed for ${file.name}.`);
 
     const completeRes = await fetch("/api/uploads/complete", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
+      method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ clientId, contentId, key: signed.key, originalName: file.name, mimeType, size: String(file.size) }),
     });
     const saved = await completeRes.json().catch(() => ({}));
-    if (!completeRes.ok) throw new Error(saved.error || "Could not register uploaded file.");
+    if (!completeRes.ok) throw new Error(saved.error || (ar ? "تعذّر تسجيل الملف المرفوع." : "Could not register uploaded file."));
     return saved.id as string;
   }
 
@@ -95,11 +77,9 @@ export function ContentWorkflow({
     const f = new FormData(e.currentTarget);
     void run(
       () => request(`/api/content/${contentId}/captions`, {
-        caption: f.get("caption"),
-        hashtags: f.get("hashtags") || undefined,
-        cta: f.get("cta") || undefined,
+        caption: f.get("caption"), hashtags: f.get("hashtags") || undefined, cta: f.get("cta") || undefined,
       }),
-      "Visual + caption sent to the client for approval."
+      ar ? "تم إرسال الفيديو/التصميم مع الكابشن للعميل للموافقة." : "Visual + caption sent to the client for approval."
     );
   }
 
@@ -119,7 +99,7 @@ export function ContentWorkflow({
     const notes = String(data.get("notes") || "").trim();
 
     if (!files.length) {
-      setMessage(isCarousel ? "Choose the carousel images first." : "Choose a video or image first.");
+      setMessage(isCarousel ? (ar ? "اختار صور الكاروسيل أولاً." : "Choose the carousel images first.") : (ar ? "اختار فيديو أو صورة أولاً." : "Choose a video or image first."));
       return;
     }
 
@@ -132,80 +112,79 @@ export function ContentWorkflow({
         }
         await request(`/api/content/${contentId}/versions`, { slides, notes: notes || undefined });
       } else {
-        if (files.length !== 1) throw new Error("Choose one file for this content type.");
+        if (files.length !== 1) throw new Error(ar ? "اختار ملف واحد لهذا النوع من المحتوى." : "Choose one file for this content type.");
         const fileId = await uploadAsset(files[0]);
         await request(`/api/content/${contentId}/versions`, { fileId, notes: notes || undefined });
       }
-    }, `V${currentVersion + 1} uploaded. The Social Media Manager was notified to add the caption.`);
+    }, ar ? `تم رفع V${currentVersion + 1}. وصل إشعار لمدير السوشيال ميديا ليضيف الكابشن.` : `V${currentVersion + 1} uploaded. The Social Media Manager was notified to add the caption.`);
   }
 
   function clientDecision(decision: "APPROVED" | "REVISION_REQUESTED") {
     if (decision === "REVISION_REQUESTED" && !clientNote.trim()) {
-      setMessage("Please write what needs to change before requesting a revision.");
+      setMessage(ar ? "اكتب ملاحظتك قبل طلب التعديل." : "Please write what needs to change before requesting a revision.");
       return;
     }
     void run(
       () => request("/api/approvals", { contentId, scope: "ALL", decision, note: clientNote.trim() || undefined }),
       decision === "APPROVED"
-        ? "Visual and caption approved. The Editor and Social Media Manager were notified."
-        : "Revision requested. Your notes were sent to the Editor and Social Media Manager."
+        ? (ar ? "تمت الموافقة على المحتوى والكابشن. وصل إشعار للمونتير ومدير السوشيال ميديا." : "Visual and caption approved. The Editor and Social Media Manager were notified.")
+        : (ar ? "تم طلب التعديل وإرسال ملاحظتك للفريق." : "Revision requested. Your notes were sent to the Editor and Social Media Manager.")
     );
   }
 
   if (!canWrite && !canApprove && !canSchedule && !canUpload) return null;
-
   const readyForClient = isClient && canApprove && contentStatus === "WAITING_CLIENT_APPROVAL" && currentVersion > 0 && currentCaptionVersion > 0 && !!captionText;
 
   return <div className="management-stack">
     {message && <div className="notice">{message}</div>}
 
     {canUpload && <section className="panel">
-      <span className="eyebrow">PRODUCTION</span>
-      <h2>{isCarousel ? "Upload carousel" : "Upload reel / post visual"}</h2>
-      <p className="muted">After upload, the Social Media Manager gets the notification first. The client is notified only after the caption is ready.</p>
-      {!storageReady && <div className="notice">Storage is not configured yet, so direct upload is temporarily disabled.</div>}
+      <span className="eyebrow">{ar ? "الإنتاج" : "PRODUCTION"}</span>
+      <h2>{isCarousel ? (ar ? "رفع كاروسيل" : "Upload carousel") : (ar ? "رفع Reel / Post" : "Upload reel / post visual")}</h2>
+      <p className="muted">{ar ? "بعد الرفع، الإشعار يروح أولاً لمدير السوشيال ميديا. العميل ما بيتنبّه إلا لما الكابشن يصير جاهز." : "After upload, the Social Media Manager gets the notification first. The client is notified only after the caption is ready."}</p>
+      {!storageReady && <div className="notice">{ar ? "التخزين مش مجهّز بعد، لذلك الرفع المباشر متوقف مؤقتاً." : "Storage is not configured yet, so direct upload is temporarily disabled."}</div>}
       <form className="compact-form upload-version-form" onSubmit={uploadVersion}>
-        <label>{isCarousel ? "Carousel images" : "Video or image"}
+        <label>{isCarousel ? (ar ? "صور الكاروسيل" : "Carousel images") : (ar ? "فيديو أو صورة" : "Video or image")}
           <input name="file" type="file" accept={isCarousel ? "image/*" : "video/*,image/*"} multiple={isCarousel} required />
         </label>
-        <label>Version notes<textarea name="notes" rows={3} placeholder="Optional production note" /></label>
-        <button disabled={busy || !storageReady}>{busy ? "Uploading…" : `Upload V${currentVersion + 1} & send to SMM`}</button>
+        <label>{ar ? "ملاحظات النسخة" : "Version notes"}<textarea name="notes" rows={3} placeholder={ar ? "ملاحظة اختيارية للفريق" : "Optional production note"} /></label>
+        <button disabled={busy || !storageReady}>{busy ? (ar ? "جارٍ الرفع…" : "Uploading…") : (ar ? `رفع V${currentVersion + 1} وإرسالها للـ SMM` : `Upload V${currentVersion + 1} & send to SMM`)}</button>
       </form>
     </section>}
 
     {canWrite && !isClient && <section className="panel">
-      <span className="eyebrow">SOCIAL MEDIA</span>
-      <h2>Add caption & send full content to client</h2>
-      {currentVersion < 1 && <div className="notice">Waiting for the Editor to upload the visual first.</div>}
+      <span className="eyebrow">{ar ? "السوشيال ميديا" : "SOCIAL MEDIA"}</span>
+      <h2>{ar ? "أضف الكابشن وأرسل المحتوى كاملاً للعميل" : "Add caption & send full content to client"}</h2>
+      {currentVersion < 1 && <div className="notice">{ar ? "بانتظار المونتير يرفع الفيديو/التصميم أولاً." : "Waiting for the Editor to upload the visual first."}</div>}
       <form className="compact-form" onSubmit={caption}>
-        <label>Caption<textarea name="caption" rows={6} defaultValue={captionText || ""} required /></label>
-        <label>Hashtags<textarea name="hashtags" rows={2} defaultValue={captionHashtags || ""} /></label>
+        <label>{ar ? "الكابشن" : "Caption"}<textarea name="caption" rows={6} defaultValue={captionText || ""} required /></label>
+        <label>{ar ? "الهاشتاغات" : "Hashtags"}<textarea name="hashtags" rows={2} defaultValue={captionHashtags || ""} /></label>
         <label>CTA<input name="cta" defaultValue={captionCta || ""} /></label>
-        <button disabled={busy || currentVersion < 1}>{busy ? "Sending…" : "Send visual + caption to client"}</button>
+        <button disabled={busy || currentVersion < 1}>{busy ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال الفيديو/التصميم + الكابشن للعميل" : "Send visual + caption to client")}</button>
       </form>
     </section>}
 
     {isClient && canApprove && <section className="panel client-review-card">
-      <span className="eyebrow">YOUR APPROVAL</span>
+      <span className="eyebrow">{ar ? "موافقتك" : "YOUR APPROVAL"}</span>
       {readyForClient ? <>
-        <h2>Review visual + caption together</h2>
+        <h2>{ar ? "راجع المحتوى والكابشن سوا" : "Review visual + caption together"}</h2>
         <div className="client-caption-preview">
-          <span className="muted">Caption V{currentCaptionVersion}</span>
+          <span className="muted">{ar ? `الكابشن V${currentCaptionVersion}` : `Caption V${currentCaptionVersion}`}</span>
           <p>{captionText}</p>
           {captionHashtags && <p className="muted">{captionHashtags}</p>}
           {captionCta && <p><b>CTA:</b> {captionCta}</p>}
         </div>
-        <label>Revision notes<textarea value={clientNote} onChange={(e) => setClientNote(e.target.value)} rows={4} placeholder="Only required if you want changes" /></label>
+        <label>{ar ? "ملاحظات التعديل" : "Revision notes"}<textarea value={clientNote} onChange={(e) => setClientNote(e.target.value)} rows={4} placeholder={ar ? "مطلوبة فقط إذا بدك تعديل" : "Only required if you want changes"} /></label>
         <div className="review-actions">
-          <button type="button" disabled={busy} onClick={() => clientDecision("APPROVED")}>Approve visual + caption</button>
-          <button type="button" className="revision-button" disabled={busy} onClick={() => clientDecision("REVISION_REQUESTED")}>Request revision</button>
+          <button type="button" disabled={busy} onClick={() => clientDecision("APPROVED")}>{ar ? "موافق على المحتوى + الكابشن" : "Approve visual + caption"}</button>
+          <button type="button" className="revision-button" disabled={busy} onClick={() => clientDecision("REVISION_REQUESTED")}>{ar ? "طلب تعديل" : "Request revision"}</button>
         </div>
       </> : <>
-        <h2>{visualStatus === "APPROVED" ? "Approved" : "Not ready for approval yet"}</h2>
-        <p className="muted">The Social Media Manager will send the complete visual + caption package when it is ready.</p>
+        <h2>{visualStatus === "APPROVED" ? (ar ? "تمت الموافقة" : "Approved") : (ar ? "لسه مش جاهز للموافقة" : "Not ready for approval yet")}</h2>
+        <p className="muted">{ar ? "مدير السوشيال ميديا رح يرسللك الفيديو/التصميم مع الكابشن لما يصيروا جاهزين." : "The Social Media Manager will send the complete visual + caption package when it is ready."}</p>
       </>}
     </section>}
 
-    {canSchedule && <section className="panel"><span className="eyebrow">PUBLISHING</span><h2>Schedule approved content</h2><form className="form-grid compact-form" onSubmit={schedule}><label>Date & time<input name="scheduledAt" type="datetime-local" required /></label><button disabled={busy}>Schedule</button></form></section>}
+    {canSchedule && <section className="panel"><span className="eyebrow">{ar ? "النشر" : "PUBLISHING"}</span><h2>{ar ? "جدولة المحتوى الموافق عليه" : "Schedule approved content"}</h2><form className="form-grid compact-form" onSubmit={schedule}><label>{ar ? "التاريخ والوقت" : "Date & time"}<input name="scheduledAt" type="datetime-local" required /></label><button disabled={busy}>{ar ? "جدولة" : "Schedule"}</button></form></section>}
   </div>;
 }
