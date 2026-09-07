@@ -119,7 +119,7 @@ const dictionary: Record<string, string> = {
 
 const allowed = new Set(["BUTTON", "LABEL", "LEGEND", "TH", "OPTION", "H2", "H3"]);
 
-function translateNode(root: ParentNode) {
+function translateNode(root: Node) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
