@@ -36,6 +36,7 @@ export async function POST() {
       userId: user.id,
       action: "GLOBAL_TEST_NOTIFICATION_SENT",
       entityType: "PushNotification",
+      entityId: "all-active-users",
       newValue: { activeUsers: userIds.length, subscriptions },
     },
   });
