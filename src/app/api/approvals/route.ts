@@ -29,7 +29,6 @@ export async function POST(req: Request) {
   const user = await authorize("content.approve", content.clientId);
   const state = parsed.data.decision;
 
-  // External clients always approve/reject the complete package: latest visual + latest caption.
   if (user.role.key === "CLIENT") {
     if (parsed.data.scope !== "ALL") {
       return NextResponse.json({ error: "Client approval must include visual and caption together" }, { status: 400 });
@@ -84,23 +83,34 @@ export async function POST(req: Request) {
     return approval;
   });
 
-  const socialManagers = await db.user.findMany({
-    where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
+  let socialManagers = await db.user.findMany({
+    where: {
+      status: "ACTIVE",
+      role: { key: "SOCIAL_MEDIA_MANAGER" },
+      clientUsers: { some: { clientId: content.clientId } },
+    },
     select: { id: true },
   });
+  if (!socialManagers.length) {
+    socialManagers = await db.user.findMany({
+      where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
+      select: { id: true },
+    });
+  }
+
   const recipients = [...new Set([
     content.versions[0]?.uploadedById,
     content.captions[0]?.createdById,
     content.ownerId,
     ...socialManagers.map((x) => x.id),
-  ].filter((id): id is string => !!id && id !== user.id))];
+  ].filter((recipientId): recipientId is string => !!recipientId && recipientId !== user.id))];
 
   if (recipients.length) {
     await notify(recipients, {
       kind: state === "APPROVED" ? "APPROVAL" : "REVISION",
-      title: state === "APPROVED" ? "Content package approved" : "Client requested changes",
+      title: state === "APPROVED" ? "Content approved by client" : "Client requested changes",
       body: state === "APPROVED"
-        ? `${content.client.brandName} approved the visual and caption for ${content.title}.`
+        ? `${content.client.brandName} approved ${content.title} — visual + caption.`
         : `${content.client.brandName} requested changes on ${content.title}: ${parsed.data.note}`,
       deepLink: `/content/${content.id}`,
     });
