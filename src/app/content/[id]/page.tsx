@@ -54,16 +54,16 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
 
   return <AppShell user={user} title={content.title} kicker={content.client.brandName.toUpperCase()}>
     <div className="management-stack">
-      <div className="metrics">
+      {!isClient && <div className="metrics">
         <article><span>{ar ? "الفيديو/التصميم" : "Visual"}</span><b className="metric-text">{s(content.visualStatus)}</b></article>
         <article><span>{ar ? "الكابشن" : "Caption"}</span><b className="metric-text">{s(content.captionStatus)}</b></article>
         <article><span>{ar ? "النشر" : "Publishing"}</span><b className="metric-text">{s(content.status)}</b></article>
-      </div>
+      </div>}
 
       <section className="panel content-review-player">
         <div className="section-head">
-          <div><span className="eyebrow">{ar ? "آخر نسخة" : "LATEST VISUAL"}</span><h2>{latestVersion ? `V${latestVersion.version}` : (ar ? "بانتظار أول رفع" : "Waiting for first upload")}</h2></div>
-          {latestVersion && <span className="muted">{ar ? `رفعها ${latestVersion.uploadedBy.name}` : `Uploaded by ${latestVersion.uploadedBy.name}`}</span>}
+          <div><span className="eyebrow">{isClient ? (ar ? "معاينة المحتوى" : "CONTENT PREVIEW") : (ar ? "آخر نسخة" : "LATEST VISUAL")}</span><h2>{latestVersion ? (isClient ? (ar ? "شاهد المحتوى قبل الموافقة" : "Preview before approval") : `V${latestVersion.version}`) : (ar ? "بانتظار أول رفع" : "Waiting for first upload")}</h2></div>
+          {!isClient && latestVersion && <span className="muted">{ar ? `رفعها ${latestVersion.uploadedBy.name}` : `Uploaded by ${latestVersion.uploadedBy.name}`}</span>}
         </div>
 
         {isCarousel && latestVersion?.slides.length ? <div className="carousel-review-grid">
@@ -72,43 +72,45 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
             if (!file) return <div className="review-empty" key={slide.id}>{ar ? `السلايد ${slide.position + 1} غير متوفر` : `Slide ${slide.position + 1} unavailable`}</div>;
             return <div className="carousel-review-slide" key={slide.id}>
               <span>{ar ? `سلايد ${slide.position + 1}` : `Slide ${slide.position + 1}`}</span>
-              {file.mimeType.startsWith("image/") ? <img src={`/api/files/${file.id}/download`} alt={`${content.title} slide ${slide.position + 1}`} /> : <a href={`/api/files/${file.id}/download`}>{ar ? "فتح السلايد" : "Open slide"}</a>}
+              {file.mimeType.startsWith("image/") ? <img src={`/api/files/${file.id}/download`} alt={`${content.title} slide ${slide.position + 1}`} /> : <div className="review-empty">{ar ? "معاينة غير متوفرة" : "Preview unavailable"}</div>}
             </div>;
           })}
         </div> : latestFile ? <div className="review-media-frame">
-          {latestFile.mimeType.startsWith("video/") ? <video controls playsInline preload="metadata" src={`/api/files/${latestFile.id}/download`} /> : latestFile.mimeType.startsWith("image/") ? <img src={`/api/files/${latestFile.id}/download`} alt={content.title} /> : <a href={`/api/files/${latestFile.id}/download`}>{ar ? "فتح الملف" : "Open uploaded file"}</a>}
-        </div> : <div className="review-empty"><b>{ar ? "ما في ملف مرفوع بعد." : "No visual uploaded yet."}</b><span>{ar ? "المونتير المعيّن بيرفع أول نسخة من هون." : "The assigned Editor can upload the first version below."}</span></div>}
+          {latestFile.mimeType.startsWith("video/") ? <video controls playsInline preload="metadata" src={`/api/files/${latestFile.id}/download`} /> : latestFile.mimeType.startsWith("image/") ? <img src={`/api/files/${latestFile.id}/download`} alt={content.title} /> : (!isClient ? <a href={`/api/files/${latestFile.id}/download`}>{ar ? "فتح الملف" : "Open uploaded file"}</a> : <div className="review-empty">{ar ? "معاينة غير متوفرة" : "Preview unavailable"}</div>)}
+        </div> : <div className="review-empty"><b>{ar ? "ما في ملف مرفوع بعد." : "No visual uploaded yet."}</b><span>{isClient ? (ar ? "رح يوصلك المحتوى هون لما يصير جاهز." : "The content will appear here when it is ready.") : (ar ? "المونتير المعيّن بيرفع أول نسخة من هون." : "The assigned Editor can upload the first version below.")}</span></div>}
 
-        {latestVersion?.notes && <div className="feedback-box"><b>{ar ? "ملاحظة المونتير" : "Editor note"}</b><p>{latestVersion.notes}</p></div>}
-        {latestRevision?.notes.map((note) => <div className="feedback-box revision-feedback" key={note.id}><b>{ar ? "آخر ملاحظة تعديل من العميل" : "Latest client revision note"}</b><p>{note.body}</p></div>)}
+        {!isClient && latestVersion?.notes && <div className="feedback-box"><b>{ar ? "ملاحظة المونتير" : "Editor note"}</b><p>{latestVersion.notes}</p></div>}
+        {!isClient && latestRevision?.notes.map((note) => <div className="feedback-box revision-feedback" key={note.id}><b>{ar ? "آخر ملاحظة تعديل من العميل" : "Latest client revision note"}</b><p>{note.body}</p></div>)}
       </section>
 
       {workflow}
 
-      <section className="panel">
-        <div className="section-head"><div><span className="eyebrow">{ar ? "التفاصيل" : "DETAILS"}</span><h2>{content.type.replaceAll("_", " ")}</h2></div><span className="muted">{content.platform.join(" · ")}</span></div>
-        <p>{ar ? "الموعد المخطط: " : "Planned: "}<b>{content.plannedAt?.toLocaleString() || (ar ? "غير مجدول" : "Not scheduled")}</b></p>
-        {content.calendar && <p>{ar ? "التقويم: " : "Calendar: "}<b>{content.calendar.scheduledAt.toLocaleString()}</b></p>}
-      </section>
+      {!isClient && <>
+        <section className="panel">
+          <div className="section-head"><div><span className="eyebrow">{ar ? "التفاصيل" : "DETAILS"}</span><h2>{content.type.replaceAll("_", " ")}</h2></div><span className="muted">{content.platform.join(" · ")}</span></div>
+          <p>{ar ? "الموعد المخطط: " : "Planned: "}<b>{content.plannedAt?.toLocaleString() || (ar ? "غير مجدول" : "Not scheduled")}</b></p>
+          {content.calendar && <p>{ar ? "التقويم: " : "Calendar: "}<b>{content.calendar.scheduledAt.toLocaleString()}</b></p>}
+        </section>
 
-      <section className="panel">
-        <span className="eyebrow">{ar ? "آخر كابشن" : "LATEST CAPTION"}</span>
-        <h2>{latestCaption ? `V${latestCaption.version}` : (ar ? "بانتظار مدير السوشيال ميديا" : "Waiting for Social Media Manager")}</h2>
-        {latestCaption && <><p className="caption-preview">{latestCaption.caption}</p>{latestCaption.hashtags && <p className="muted">{latestCaption.hashtags}</p>}{latestCaption.cta && <p><b>CTA:</b> {latestCaption.cta}</p>}</>}
-      </section>
+        <section className="panel">
+          <span className="eyebrow">{ar ? "آخر كابشن" : "LATEST CAPTION"}</span>
+          <h2>{latestCaption ? `V${latestCaption.version}` : (ar ? "بانتظار مدير السوشيال ميديا" : "Waiting for Social Media Manager")}</h2>
+          {latestCaption && <><p className="caption-preview">{latestCaption.caption}</p>{latestCaption.hashtags && <p className="muted">{latestCaption.hashtags}</p>}{latestCaption.cta && <p><b>CTA:</b> {latestCaption.cta}</p>}</>}
+        </section>
 
-      <section className="panel tablewrap">
-        <span className="eyebrow">{ar ? "النسخ" : "VERSIONS"}</span><h2>{ar ? "سجل الإنتاج" : "Production history"}</h2>
-        <table><thead><tr><th>{ar ? "النسخة" : "Version"}</th><th>{ar ? "رفعها" : "Uploaded by"}</th><th>{ar ? "التاريخ" : "Date"}</th><th>{ar ? "ملاحظات" : "Notes"}</th><th>{ar ? "الملفات" : "Files"}</th></tr></thead><tbody>
-          {content.versions.map((v) => <tr key={v.id}><td>V{v.version}</td><td>{v.uploadedBy.name}</td><td>{v.createdAt.toLocaleString()}</td><td>{v.notes || "—"}</td><td>{v.fileId ? <a href={`/api/files/${v.fileId}/download`}>{ar ? "فتح" : "Open"}</a> : v.slides.length ? `${v.slides.length} ${ar ? "سلايد" : "slides"}` : "—"}</td></tr>)}
-        </tbody></table>
-        {!content.versions.length && <p>{ar ? "ما في نسخ إنتاج بعد." : "No production versions yet."}</p>}
-      </section>
+        <section className="panel tablewrap">
+          <span className="eyebrow">{ar ? "النسخ" : "VERSIONS"}</span><h2>{ar ? "سجل الإنتاج" : "Production history"}</h2>
+          <table><thead><tr><th>{ar ? "النسخة" : "Version"}</th><th>{ar ? "رفعها" : "Uploaded by"}</th><th>{ar ? "التاريخ" : "Date"}</th><th>{ar ? "ملاحظات" : "Notes"}</th><th>{ar ? "الملفات" : "Files"}</th></tr></thead><tbody>
+            {content.versions.map((v) => <tr key={v.id}><td>V{v.version}</td><td>{v.uploadedBy.name}</td><td>{v.createdAt.toLocaleString()}</td><td>{v.notes || "—"}</td><td>{v.fileId ? <a href={`/api/files/${v.fileId}/download`}>{ar ? "فتح" : "Open"}</a> : v.slides.length ? `${v.slides.length} ${ar ? "سلايد" : "slides"}` : "—"}</td></tr>)}
+          </tbody></table>
+          {!content.versions.length && <p>{ar ? "ما في نسخ إنتاج بعد." : "No production versions yet."}</p>}
+        </section>
 
-      <section className="panel">
-        <span className="eyebrow">{ar ? "الملاحظات" : "FEEDBACK"}</span><h2>{ar ? "سجل الموافقات" : "Approval history"}</h2>
-        {content.approvals.length ? content.approvals.map((a) => <article className="approval-line" key={a.id}><div><b>{a.scope}</b><span>{s(a.state)}</span></div><small>{a.decidedAt?.toLocaleString() || a.createdAt.toLocaleString()}</small>{a.notes.map((n) => <p key={n.id}>{n.body}</p>)}</article>) : <p>{ar ? "ما في نشاط موافقات بعد." : "No approval activity yet."}</p>}
-      </section>
+        <section className="panel">
+          <span className="eyebrow">{ar ? "الملاحظات" : "FEEDBACK"}</span><h2>{ar ? "سجل الموافقات" : "Approval history"}</h2>
+          {content.approvals.length ? content.approvals.map((a) => <article className="approval-line" key={a.id}><div><b>{a.scope}</b><span>{s(a.state)}</span></div><small>{a.decidedAt?.toLocaleString() || a.createdAt.toLocaleString()}</small>{a.notes.map((n) => <p key={n.id}>{n.body}</p>)}</article>) : <p>{ar ? "ما في نشاط موافقات بعد." : "No approval activity yet."}</p>}
+        </section>
+      </>}
     </div>
   </AppShell>;
 }
