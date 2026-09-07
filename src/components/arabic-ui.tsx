@@ -19,7 +19,6 @@ const dictionary: Record<string, string> = {
   "Temporary password": "كلمة مرور مؤقتة",
   "Role": "الدور",
   "Client access / assignments": "العملاء المسموح الوصول إليهم",
-  "Create user": "إضافة مستخدم",
   "Assigned clients": "العملاء المعيّنون",
   "Reset password": "إعادة تعيين كلمة المرور",
   "Status": "الحالة",
@@ -115,7 +114,7 @@ const dictionary: Record<string, string> = {
   "Edit": "تعديل",
   "Delete": "حذف",
   "Search": "بحث",
-  "Filter": "تصفية",
+  "Filter": "تصفية"
 };
 
 const allowed = new Set(["BUTTON", "LABEL", "LEGEND", "TH", "OPTION", "H2", "H3"]);
