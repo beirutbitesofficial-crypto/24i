@@ -2,6 +2,7 @@ import type { User, Role } from "@prisma/client";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BurgerMenu } from "@/components/burger-menu";
+import { ArabicUi } from "@/components/arabic-ui";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type NavItem = { href: string; label: string; permission?: string };
@@ -29,6 +30,13 @@ const arKickers: Record<string, string> = {
   CONFIGURATION: "الإعدادات",
   ACCESS: "الصلاحيات",
   "ACCESS CONTROL": "إدارة الصلاحيات",
+  WORKLOAD: "المهام",
+  CLIENTS: "العملاء",
+  PROJECTS: "المشاريع",
+  FINANCE: "المالية",
+  REPORTING: "التقارير",
+  FILES: "الملفات",
+  CALENDAR: "التقويم",
 };
 
 const arRoles: Record<string, string> = {
@@ -81,6 +89,7 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
         </div>
       </header>
       {children}
+      {ar && <ArabicUi />}
     </section>
   </main>;
 }
