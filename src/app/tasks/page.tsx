@@ -13,7 +13,12 @@ export default async function Tasks() {
   if (!hasPermission(user, "tasks.read")) redirect("/");
   const ar = user.language === "AR";
   const ids = assignedClientIds(user);
-  const where = user.role.key === "EDITOR" ? { assignees: { some: { userId: user.id } } } : ids ? { clientId: { in: ids } } : {};
+  const scope = user.role.key === "EDITOR"
+    ? { assignees: { some: { userId: user.id } } }
+    : ids
+      ? { clientId: { in: ids } }
+      : {};
+  const where = { ...scope, status: { not: "COMPLETED" as const } };
   const canWrite = hasPermission(user, "tasks.write");
   const canUpdate = hasPermission(user, "tasks.update");
 
@@ -26,7 +31,10 @@ export default async function Tasks() {
   return <AppShell user={user} title="Tasks" kicker="WORKLOAD">
     <div className="management-stack">
       {canWrite && <TaskManager clients={clients} users={team.map((u) => ({ id: u.id, name: u.name, role: u.role.name }))} ar={ar} />}
-      <div className="panel tablewrap"><table><thead><tr><th>{ar ? "المهمة" : "Task"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "المكلّفون" : "Assignees"}</th><th>{ar ? "الموعد" : "Due"}</th><th>{ar ? "الأولوية" : "Priority"}</th><th>{ar ? "الحالة" : "Status"}</th>{canUpdate && <th>{ar ? "تحديث" : "Update"}</th>}</tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><b>{x.title}</b><small>{x.category}</small></td><td>{x.client?.brandName || "—"}</td><td>{x.assignees.map((a) => a.user.name).join(", ") || "—"}</td><td>{x.dueAt?.toLocaleString() || "—"}</td><td>{ar ? (priorityAr[x.priority] || x.priority) : x.priority}</td><td>{ar ? (taskAr[x.status] || x.status) : x.status.replaceAll("_", " ")}</td>{canUpdate && <td><TaskStatus taskId={x.id} current={x.status} ar={ar} /></td>}</tr>)}</tbody></table>{!rows.length && <p>{ar ? "ما في مهام بعد." : "No tasks yet."}</p>}</div>
+      <div className="panel tablewrap">
+        <div className="section-head"><div><span className="eyebrow">{ar ? "المهام النشطة" : "ACTIVE TASKS"}</span><h2>{ar ? "المهام الحالية" : "Current workload"}</h2></div><span className="muted">{ar ? "المهمة المكتملة تُؤرشف تلقائياً" : "Completed tasks archive automatically"}</span></div>
+        <table><thead><tr><th>{ar ? "المهمة" : "Task"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "المكلّفون" : "Assignees"}</th><th>{ar ? "الموعد" : "Due"}</th><th>{ar ? "الأولوية" : "Priority"}</th><th>{ar ? "الحالة" : "Status"}</th>{canUpdate && <th>{ar ? "تحديث" : "Update"}</th>}</tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><b>{x.title}</b><small>{x.category}</small></td><td>{x.client?.brandName || "—"}</td><td>{x.assignees.map((a) => a.user.name).join(", ") || "—"}</td><td>{x.dueAt?.toLocaleString() || "—"}</td><td>{ar ? (priorityAr[x.priority] || x.priority) : x.priority}</td><td>{ar ? (taskAr[x.status] || x.status) : x.status.replaceAll("_", " ")}</td>{canUpdate && <td><TaskStatus taskId={x.id} current={x.status} ar={ar} /></td>}</tr>)}</tbody></table>{!rows.length && <p>{ar ? "ما في مهام نشطة." : "No active tasks."}</p>}
+      </div>
     </div>
   </AppShell>;
 }
