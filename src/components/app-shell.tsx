@@ -1,9 +1,43 @@
 import type { User, Role } from "@prisma/client";
 import { LanguageToggle } from "@/components/language-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { BurgerMenu } from "@/components/burger-menu";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type NavItem = { href: string; label: string; permission?: string };
+
+const arTitles: Record<string, string> = {
+  Dashboard: "لوحة التحكم",
+  Notifications: "الإشعارات",
+  Users: "المستخدمون",
+  Clients: "العملاء",
+  Projects: "المشاريع",
+  Tasks: "المهام",
+  Content: "المحتوى",
+  Calendar: "التقويم",
+  Files: "الملفات",
+  Finance: "المالية",
+  Reports: "التقارير",
+  Audit: "سجل التدقيق",
+  Settings: "الإعدادات",
+  "User management": "إدارة المستخدمين",
+};
+
+const arKickers: Record<string, string> = {
+  TODAY: "اليوم",
+  PRODUCTION: "الإنتاج",
+  CONFIGURATION: "الإعدادات",
+  ACCESS: "الصلاحيات",
+  "ACCESS CONTROL": "إدارة الصلاحيات",
+};
+
+const arRoles: Record<string, string> = {
+  ADMIN: "مدير النظام",
+  MANAGER: "مدير",
+  EDITOR: "مونتير",
+  SOCIAL_MEDIA_MANAGER: "مدير سوشيال ميديا",
+  CLIENT: "عميل",
+};
 
 export function AppShell({ user, title, kicker, children }: { user: ShellUser; title: string; kicker: string; children: React.ReactNode }) {
   const permissions = new Set(user.role.permissions.map((p) => p.permission));
@@ -12,7 +46,7 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
   const ar = user.language === "AR";
 
   const items: NavItem[] = [
-    { href: "/", label: ar ? "لوحة التحكم" : "Dashboard", permission: "dashboard.read" },
+    { href: "/", label: ar ? "الرئيسية" : "Home", permission: "dashboard.read" },
     { href: "/notifications", label: ar ? "الإشعارات" : "Notifications", permission: "notifications.read" },
     { href: "/users", label: ar ? "المستخدمون" : "Users", permission: "users.read" },
     { href: "/clients", label: ar ? (client ? "شركتي" : "العملاء") : (client ? "My company" : "Clients"), permission: "clients.read" },
@@ -27,17 +61,24 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/settings", label: ar ? "الإعدادات" : "Settings", permission: "settings.read" },
   ].filter((item) => can(item.permission));
 
-  return <main className="shell menu-shell" dir={ar ? "rtl" : "ltr"}>
+  const displayTitle = ar ? (arTitles[title] || title) : title;
+  const displayKicker = ar ? (arKickers[kicker] || kicker) : kicker;
+  const roleName = ar ? (arRoles[user.role.key] || user.role.name) : user.role.name;
+
+  return <main className="shell menu-shell" dir={ar ? "rtl" : "ltr"} data-language={ar ? "ar" : "en"}>
     <section className="workspace">
       <header className="app-header">
         <div className="header-main">
-          <BurgerMenu items={items.map(({ href, label }) => ({ href, label }))} userName={user.name} roleName={user.role.name} signOutLabel={ar ? "تسجيل الخروج" : "Sign out"} />
-          <div>
-            <span className="eyebrow">{kicker}</span>
-            <h1>{title}</h1>
+          <BurgerMenu items={items.map(({ href, label }) => ({ href, label }))} userName={user.name} roleName={roleName} signOutLabel={ar ? "تسجيل الخروج" : "Sign out"} ar={ar} />
+          <div className="page-heading">
+            <span className="eyebrow">{displayKicker}</span>
+            <h1>{displayTitle}</h1>
           </div>
         </div>
-        <LanguageToggle language={user.language} />
+        <div className="preference-controls">
+          <ThemeToggle ar={ar} />
+          <LanguageToggle language={user.language} />
+        </div>
       </header>
       {children}
     </section>
