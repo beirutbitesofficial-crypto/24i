@@ -11,6 +11,13 @@ const schema = z.object({
   slides: z.array(z.object({ fileId: z.string(), position: z.number().int().min(0) })).optional(),
 });
 
+function assetLabel(type: string) {
+  if (["REEL", "TIKTOK", "YOUTUBE_SHORT"].includes(type)) return "Video";
+  if (type === "CAROUSEL") return "Carousel";
+  if (["STATIC_POST", "FACEBOOK_POST", "LINKEDIN_POST"].includes(type)) return "Post";
+  return "Visual";
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const parsed = schema.safeParse(await req.json());
@@ -18,7 +25,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const content = await db.contentItem.findUnique({
     where: { id },
-    include: { versions: { orderBy: { version: "desc" }, take: 1 } },
+    include: {
+      client: { select: { brandName: true } },
+      versions: { orderBy: { version: "desc" }, take: 1 },
+    },
   });
   if (!content) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -52,8 +62,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
     });
 
-    // Internal handoff: the visual is uploaded, but the client should not review
-    // until the social media manager adds/submits the caption.
     await tx.contentItem.update({
       where: { id },
       data: { status: "UPLOAD", visualStatus: "DRAFT", captionStatus: "DRAFT" },
@@ -70,16 +78,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return row;
   });
 
-  const socialManagers = await db.user.findMany({
-    where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
+  // Prefer Social Media Managers assigned to this client. If none are assigned,
+  // fall back to all active SMMs so the handoff never gets lost.
+  let socialManagers = await db.user.findMany({
+    where: {
+      status: "ACTIVE",
+      role: { key: "SOCIAL_MEDIA_MANAGER" },
+      clientUsers: { some: { clientId: content.clientId } },
+    },
     select: { id: true },
   });
-  const recipients = [...new Set(socialManagers.map((x) => x.id).filter((id) => id !== user.id))];
+  if (!socialManagers.length) {
+    socialManagers = await db.user.findMany({
+      where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
+      select: { id: true },
+    });
+  }
+
+  const recipients = [...new Set(socialManagers.map((x) => x.id).filter((recipientId) => recipientId !== user.id))];
   if (recipients.length) {
+    const label = assetLabel(content.type);
     await notify(recipients, {
       kind: "APPROVAL",
-      title: "Visual ready for caption",
-      body: `${content.title} V${version.version} was uploaded. Add the caption and send the full content to the client.`,
+      title: `${label} uploaded — check it`,
+      body: `${user.name} uploaded ${content.title} for ${content.client.brandName}. Add the caption, then confirm to send it to the client.`,
       deepLink: `/content/${id}`,
     });
   }
