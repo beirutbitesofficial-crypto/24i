@@ -98,11 +98,17 @@ export async function POST(req: Request) {
     });
   }
 
+  const managers = await db.user.findMany({
+    where: { status: "ACTIVE", role: { key: "MANAGER" } },
+    select: { id: true },
+  });
+
   const recipients = [...new Set([
     content.versions[0]?.uploadedById,
     content.captions[0]?.createdById,
     content.ownerId,
     ...socialManagers.map((x) => x.id),
+    ...managers.map((x) => x.id),
   ].filter((recipientId): recipientId is string => !!recipientId && recipientId !== user.id))];
 
   if (recipients.length) {
