@@ -15,7 +15,7 @@ const rolePermissions: Record<string, string[]> = {
     "dashboard.read","clients.read","projects.read","tasks.read","tasks.write","tasks.update","content.read","content.write","content.upload","content.approve","content.schedule","calendar.read","calendar.write","files.read","files.write","notifications.read",
   ],
   CLIENT: [
-    "dashboard.read","clients.read","content.read","content.approve","calendar.read","files.read","notifications.read","packages.read","finance.client.read",
+    "dashboard.read","clients.read","content.read","content.approve","calendar.read","notifications.read","packages.read","finance.client.read",
   ],
 };
 
