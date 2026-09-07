@@ -2,6 +2,7 @@ import "./styles.css";
 import "./theme.css";
 import "./management.css";
 import "./workflow.css";
+import "./nav-ux.css";
 import { PwaRegister } from "@/components/pwa-register";
 
 const appIcon = "/api/app-icon?v=full-logo-1";
