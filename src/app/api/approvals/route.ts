@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
+import { deleteStoredObject } from "@/lib/storage";
 
 const schema = z.object({
   contentId: z.string(),
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     where: { id: parsed.data.contentId },
     include: {
       client: { include: { users: true } },
-      versions: { orderBy: { version: "desc" }, take: 1 },
+      versions: { include: { slides: true }, orderBy: { version: "desc" }, take: 1 },
       captions: { orderBy: { version: "desc" }, take: 1 },
     },
   });
@@ -28,12 +29,13 @@ export async function POST(req: Request) {
 
   const user = await authorize("content.approve", content.clientId);
   const state = parsed.data.decision;
+  const currentVersion = content.versions[0];
 
   if (user.role.key === "CLIENT") {
     if (parsed.data.scope !== "ALL") {
       return NextResponse.json({ error: "Client approval must include visual and caption together" }, { status: 400 });
     }
-    if (content.status !== "WAITING_CLIENT_APPROVAL" || !content.versions[0] || !content.captions[0]) {
+    if (content.status !== "WAITING_CLIENT_APPROVAL" || !currentVersion || !content.captions[0]) {
       return NextResponse.json({ error: "This content package is not ready for client approval" }, { status: 409 });
     }
   }
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
     const approval = await tx.approval.create({
       data: {
         contentId: content.id,
-        contentVersionId: parsed.data.scope !== "CAPTION" ? content.versions[0]?.id : null,
+        contentVersionId: parsed.data.scope !== "CAPTION" ? currentVersion?.id : null,
         captionVersionId: parsed.data.scope !== "VISUAL" ? content.captions[0]?.id : null,
         reviewerId: user.id,
         scope: parsed.data.scope,
@@ -104,7 +106,7 @@ export async function POST(req: Request) {
   });
 
   const recipients = [...new Set([
-    content.versions[0]?.uploadedById,
+    currentVersion?.uploadedById,
     content.captions[0]?.createdById,
     content.ownerId,
     ...socialManagers.map((x) => x.id),
@@ -120,6 +122,58 @@ export async function POST(req: Request) {
         : `${content.client.brandName} requested changes on ${content.title}: ${parsed.data.note}`,
       deepLink: `/content/${content.id}`,
     });
+  }
+
+  // Client-reviewed media is temporary. Keep the decision, captions, notes and
+  // production metadata, but remove the heavy media from object storage once
+  // the client has approved it or sent revision notes.
+  if (user.role.key === "CLIENT" && parsed.data.scope === "ALL" && currentVersion) {
+    const assetIds = [...new Set([
+      currentVersion.fileId,
+      currentVersion.thumbnailId,
+      ...currentVersion.slides.map((slide) => slide.fileId),
+    ].filter((fileId): fileId is string => !!fileId))];
+
+    if (assetIds.length) {
+      const files = await db.fileObject.findMany({
+        where: { id: { in: assetIds }, deletedAt: null },
+        select: { id: true, key: true },
+      });
+
+      const cleanupResults = await Promise.allSettled(
+        files.map(async (file) => {
+          await deleteStoredObject(file.key);
+          return file.id;
+        })
+      );
+
+      const deletedIds = cleanupResults.flatMap((item) =>
+        item.status === "fulfilled" ? [item.value] : []
+      );
+      const failedCount = cleanupResults.length - deletedIds.length;
+
+      if (deletedIds.length) {
+        await db.fileObject.updateMany({
+          where: { id: { in: deletedIds } },
+          data: { deletedAt: new Date() },
+        });
+      }
+
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "CONTENT_MEDIA_PURGED_AFTER_REVIEW",
+          entityType: "ContentItem",
+          entityId: content.id,
+          newValue: {
+            version: currentVersion.version,
+            decision: state,
+            deletedFiles: deletedIds.length,
+            failedFiles: failedCount,
+          },
+        },
+      });
+    }
   }
 
   return NextResponse.json(result, { status: 201 });
