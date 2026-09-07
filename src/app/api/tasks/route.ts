@@ -26,7 +26,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Social Media Managers must create tasks inside an assigned client." }, { status: 403 });
   }
 
-  const { assigneeIds, ...data } = parsed.data;
+  const { assigneeIds: rawAssigneeIds, ...data } = parsed.data;
+  const assigneeIds = [...new Set(rawAssigneeIds)];
+
   const task = await db.$transaction(async (tx) => {
     const row = await tx.task.create({
       data: {
@@ -34,13 +36,29 @@ export async function POST(req: Request) {
         recurrence: data.recurrence as any,
         assignees: { create: assigneeIds.map((userId) => ({ userId })) },
       },
+      include: { client: { select: { brandName: true } } },
     });
     await tx.auditLog.create({
-      data: { userId: user.id, action: "TASK_CREATED", entityType: "Task", entityId: row.id, newValue: parsed.data as any },
+      data: {
+        userId: user.id,
+        action: "TASK_CREATED",
+        entityType: "Task",
+        entityId: row.id,
+        newValue: { ...parsed.data, assigneeIds } as any,
+      },
     });
     return row;
   });
 
-  await notify(assigneeIds, { kind: "TASK", title: "New task", body: task.title, deepLink: `/tasks` });
+  // A task notification goes only to the selected assignees.
+  if (assigneeIds.length) {
+    await notify(assigneeIds, {
+      kind: "TASK",
+      title: `New task from ${user.name}`,
+      body: `${task.client?.brandName ? `${task.client.brandName} · ` : ""}${task.title}`,
+      deepLink: "/tasks",
+    });
+  }
+
   return NextResponse.json(task, { status: 201 });
 }
