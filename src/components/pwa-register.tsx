@@ -74,7 +74,6 @@ export function PwaRegister() {
           return;
         }
 
-        // Installed web app: show our permission modal immediately on first/open launch.
         if (active) setState("prompt");
       } catch {
         if (active) setState("error");
@@ -112,11 +111,11 @@ export function PwaRegister() {
 
   return <div className="push-modal-backdrop" role="dialog" aria-modal="true" aria-label="24i notifications">
     <section className="push-modal">
-      <img src="/api/app-icon?v=3" alt="24i Production" className="push-modal-logo" />
+      <img src="/api/app-icon?v=full-logo-mac-2" alt="24i Production" className="push-modal-logo" />
       <div className="push-modal-copy">
         <span className="eyebrow">24i PRODUCTION</span>
         <h2>{state === "denied" ? "Notifications are blocked" : state === "error" ? "Notifications need setup" : "Allow notifications?"}</h2>
-        <p>{state === "denied" ? "Enable notifications for 24i from your iPhone Settings to receive alerts." : state === "error" ? "Push notifications are not fully configured on the server yet." : "Get instant alerts for approvals, revisions, captions and assigned tasks even when 24i is closed."}</p>
+        <p>{state === "denied" ? "Enable notifications for 24i from your device settings to receive alerts." : state === "error" ? "Push notifications are not fully configured on the server yet." : "Get instant alerts for approvals, revisions, captions and assigned tasks even when 24i is closed."}</p>
       </div>
       {state === "prompt" ? <div className="push-modal-actions">
         <button type="button" className="secondary" disabled={busy} onClick={() => setState("hidden")}>Not now</button>
