@@ -29,8 +29,12 @@ export default async function Content() {
   const ar = user.language === "AR";
   const ids = assignedClientIds(user);
   const canWrite = hasPermission(user, "content.write");
+  const contentWhere = ids
+    ? { clientId: { in: ids }, NOT: { platform: { has: "SCRIPT" } } }
+    : { NOT: { platform: { has: "SCRIPT" } } };
+
   const [rows, clients, owners] = await Promise.all([
-    db.contentItem.findMany({ where: ids ? { clientId: { in: ids } } : {}, include: { client: true, versions: { orderBy: { version: "desc" }, take: 1 } }, orderBy: { updatedAt: "desc" }, take: 100 }),
+    db.contentItem.findMany({ where: contentWhere, include: { client: true, versions: { orderBy: { version: "desc" }, take: 1 } }, orderBy: { updatedAt: "desc" }, take: 100 }),
     canWrite ? db.client.findMany({ where: ids ? { id: { in: ids } } : {}, select: { id: true, brandName: true }, orderBy: { brandName: "asc" } }) : Promise.resolve([]),
     canWrite ? db.user.findMany({ where: { status: "ACTIVE", role: { key: { in: ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER"] } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
