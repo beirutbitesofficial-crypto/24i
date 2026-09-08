@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -57,6 +58,7 @@ export function LoginForm() {
       </label>
       {error && <p role="alert">{error}</p>}
       <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+      <p className="muted">New client? <Link href="/signup">Create an account</Link></p>
     </form>
   );
 }
