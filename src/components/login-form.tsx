@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export function LoginForm() {
-  const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -33,8 +31,9 @@ export function LoginForm() {
             return;
           }
 
-          router.push("/");
-          router.refresh();
+          // Reload once after authentication so PwaRegister runs with the
+          // signed-in session and saves this browser/device subscription.
+          window.location.href = "/";
         } catch {
           setError("Server unavailable. Please try again.");
         } finally {
