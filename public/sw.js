@@ -1,5 +1,5 @@
-const CACHE="24i-shell-v4";
-const APP_ICON="/api/app-icon?v=full-logo-1";
+const CACHE="24i-shell-v5";
+const APP_ICON="/api/app-icon?v=full-logo-mac-2";
 
 self.addEventListener("install",(event)=>{
   self.skipWaiting();
