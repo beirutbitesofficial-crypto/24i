@@ -15,6 +15,8 @@ const arTitles: Record<string, string> = {
   Projects: "المشاريع",
   Tasks: "المهام",
   Content: "المحتوى",
+  Scripts: "السكربتات",
+  "Shooting days": "أيام التصوير",
   Calendar: "التقويم",
   Files: "الملفات",
   Finance: "المالية",
@@ -27,6 +29,7 @@ const arTitles: Record<string, string> = {
 const arKickers: Record<string, string> = {
   TODAY: "اليوم",
   PRODUCTION: "الإنتاج",
+  APPROVALS: "الموافقات",
   CONFIGURATION: "الإعدادات",
   ACCESS: "الصلاحيات",
   "ACCESS CONTROL": "إدارة الصلاحيات",
@@ -52,6 +55,8 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
   const can = (permission?: string) => !permission || user.role.key === "ADMIN" || permissions.has(permission);
   const client = user.role.key === "CLIENT";
   const ar = user.language === "AR";
+  const canSeeScripts = ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "CLIENT"].includes(user.role.key);
+  const canSeeShooting = ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"].includes(user.role.key);
 
   const items: NavItem[] = [
     { href: "/", label: ar ? "الرئيسية" : "Home", permission: "dashboard.read" },
@@ -61,6 +66,8 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
     { href: "/projects", label: ar ? "المشاريع" : "Projects", permission: "projects.read" },
     { href: "/tasks", label: ar ? "المهام" : "Tasks", permission: "tasks.read" },
     { href: "/content", label: ar ? "المحتوى" : "Content", permission: "content.read" },
+    ...(canSeeScripts ? [{ href: "/scripts", label: ar ? "السكربتات" : "Scripts" }] : []),
+    ...(canSeeShooting ? [{ href: "/shooting", label: ar ? "أيام التصوير" : "Shooting days" }] : []),
     { href: "/calendar", label: ar ? "التقويم" : "Calendar", permission: "calendar.read" },
     { href: "/files", label: ar ? "الملفات" : "Files", permission: "files.read", hideForClient: true },
     { href: "/finance", label: ar ? (client ? "المدفوعات" : "المالية") : (client ? "Payments" : "Finance"), permission: client ? "finance.client.read" : "finance.read" },
