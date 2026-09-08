@@ -4,18 +4,13 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 
-const schema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("DECIDE"),
-    decision: z.enum(["APPROVED", "REVISION_REQUESTED"]),
-    note: z.string().trim().max(3000).optional(),
-  }).refine((value) => value.decision === "APPROVED" || !!value.note, { message: "Revision note is required" }),
-  z.object({
-    action: z.literal("RESEND"),
-    title: z.string().trim().min(1).max(200),
-    body: z.string().trim().min(1).max(20000),
-  }),
-]);
+const schema = z.object({
+  action: z.enum(["DECIDE", "RESEND"]),
+  decision: z.enum(["APPROVED", "REVISION_REQUESTED"]).optional(),
+  note: z.string().trim().max(3000).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  body: z.string().trim().min(1).max(20000).optional(),
+});
 
 const internalRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"]);
 
@@ -34,6 +29,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!script) return NextResponse.json({ error: "Script not found" }, { status: 404 });
 
   if (parsed.data.action === "RESEND") {
+    if (!parsed.data.title || !parsed.data.body) {
+      return NextResponse.json({ error: "Title and script body are required" }, { status: 400 });
+    }
+
     const user = await authorize("content.write", script.clientId);
     if (!internalRoles.has(user.role.key)) {
       return NextResponse.json({ error: "Only Admin, Manager or Social Media Manager can resend scripts" }, { status: 403 });
@@ -45,14 +44,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         data: {
           contentId: script.id,
           version: latestVersion + 1,
-          caption: parsed.data.body,
+          caption: parsed.data.body!,
           createdById: user.id,
         },
       });
       await tx.contentItem.update({
         where: { id: script.id },
         data: {
-          title: parsed.data.title,
+          title: parsed.data.title!,
           status: "WAITING_CLIENT_APPROVAL",
           visualStatus: "NOT_REQUIRED",
           captionStatus: "WAITING",
@@ -65,7 +64,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           action: "SCRIPT_REVISED_AND_RESENT",
           entityType: "ContentItem",
           entityId: script.id,
-          newValue: { title: parsed.data.title, version: latestVersion + 1 },
+          newValue: { title: parsed.data.title!, version: latestVersion + 1 },
         },
       });
     });
@@ -83,6 +82,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     return NextResponse.json({ ok: true });
+  }
+
+  if (!parsed.data.decision) {
+    return NextResponse.json({ error: "Decision is required" }, { status: 400 });
+  }
+  if (parsed.data.decision === "REVISION_REQUESTED" && !parsed.data.note) {
+    return NextResponse.json({ error: "Revision note is required" }, { status: 400 });
   }
 
   const user = await authorize("content.approve", script.clientId);
@@ -122,7 +128,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         action: decision === "APPROVED" ? "SCRIPT_APPROVED" : "SCRIPT_REVISION_REQUESTED",
         entityType: "ContentItem",
         entityId: script.id,
-        newValue: { decision, note: parsed.data.note },
+        newValue: parsed.data.note ? { decision, note: parsed.data.note } : { decision },
       },
     });
   });
