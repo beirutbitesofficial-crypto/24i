@@ -36,8 +36,9 @@ export default async function Calendar({ searchParams }: { searchParams: Promise
   const { start, end } = monthBounds(month);
   const ids = assignedClientIds(user);
   const canPlan = hasPermission(user, "calendar.write") && hasPermission(user, "content.write") && user.role.key !== "CLIENT";
+  const canSeeShooting = ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"].includes(user.role.key);
 
-  const [rows, clients] = await Promise.all([
+  const [rows, clients, shootingRows] = await Promise.all([
     db.calendarEntry.findMany({
       where: {
         scheduledAt: { gte: start, lt: end },
@@ -52,6 +53,17 @@ export default async function Calendar({ searchParams }: { searchParams: Promise
           where: ids ? { id: { in: ids } } : {},
           select: { id: true, brandName: true },
           orderBy: { brandName: "asc" },
+        })
+      : Promise.resolve([]),
+    canSeeShooting
+      ? db.task.findMany({
+          where: {
+            category: "SHOOTING_RESERVATION",
+            startAt: { gte: start, lt: end },
+          },
+          include: { client: true, assignees: { include: { user: true } } },
+          orderBy: { startAt: "asc" },
+          take: 100,
         })
       : Promise.resolve([]),
   ]);
@@ -78,11 +90,33 @@ export default async function Calendar({ searchParams }: { searchParams: Promise
         <div className="metrics">
           <article><span>{ar ? "بوستات" : "Posts"}</span><b>{posts}</b></article>
           <article><span>{ar ? "ريلز" : "Reels"}</span><b>{reels}</b></article>
-          <article><span>{ar ? "المجموع" : "Total"}</span><b>{rows.length}</b></article>
+          <article><span>{ar ? "أيام تصوير" : "Shoots"}</span><b>{shootingRows.length}</b></article>
+          <article><span>{ar ? "المحتوى" : "Content total"}</span><b>{rows.length}</b></article>
         </div>
       </section>
 
       {canPlan && <MonthlyContentPlanner clients={clients} month={month} ar={ar} />}
+
+      {canSeeShooting && <section className="panel tablewrap">
+        <div className="section-head">
+          <div><span className="eyebrow">{ar ? "أيام التصوير" : "SHOOTING DAYS"}</span><h2>{ar ? "حجوزات التصوير لهيدا الشهر" : "Shooting reservations this month"}</h2></div>
+          <Link className="button secondary" href="/shooting">{ar ? "حجز تصوير" : "Reserve shooting"}</Link>
+        </div>
+        <table>
+          <thead><tr><th>{ar ? "الوقت" : "Time"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "التصوير" : "Shooting"}</th><th>{ar ? "المكان" : "Location"}</th><th>{ar ? "حجزها" : "Reserved by"}</th></tr></thead>
+          <tbody>{shootingRows.map((shoot) => {
+            const meta = (shoot.recurrence && typeof shoot.recurrence === "object" ? shoot.recurrence : {}) as { location?: string };
+            return <tr key={shoot.id}>
+              <td><b>{shoot.startAt?.toLocaleString(ar ? "ar-LB" : "en-US") || "—"}</b><small>{shoot.dueAt?.toLocaleString(ar ? "ar-LB" : "en-US") || "—"}</small></td>
+              <td>{shoot.client?.brandName || "—"}</td>
+              <td>{shoot.title}</td>
+              <td>{meta.location || "—"}</td>
+              <td>{shoot.assignees.map((item) => item.user.name).join(", ") || "—"}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+        {!shootingRows.length && <p>{ar ? "ما في تصوير محجوز بهيدا الشهر." : "No shooting days reserved this month."}</p>}
+      </section>}
 
       <section className="panel tablewrap">
         <div className="section-head"><div><span className="eyebrow">{ar ? "مواعيد الشهر" : "MONTH SCHEDULE"}</span><h2>{ar ? "المحتوى حسب التاريخ" : "Content by date"}</h2></div><span className="muted">{month}</span></div>
