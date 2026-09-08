@@ -85,11 +85,11 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
             if (!file) return <div className="review-empty" key={slide.id}>{ar ? `السلايد ${slide.position + 1} غير متوفر` : `Slide ${slide.position + 1} unavailable`}</div>;
             return <div className="carousel-review-slide" key={slide.id}>
               <span>{ar ? `سلايد ${slide.position + 1}` : `Slide ${slide.position + 1}`}</span>
-              {file.mimeType.startsWith("image/") ? <img src={`/api/files/${file.id}/download`} alt={`${content.title} slide ${slide.position + 1}`} /> : <div className="review-empty">{ar ? "معاينة غير متوفرة" : "Preview unavailable"}</div>}
+              {file.mimeType.startsWith("image/") ? <img src={`/api/files/${file.id}/preview`} alt={`${content.title} slide ${slide.position + 1}`} /> : <div className="review-empty">{ar ? "معاينة غير متوفرة" : "Preview unavailable"}</div>}
             </div>;
           })}
         </div> : latestFile ? <div className="review-media-frame">
-          {latestFile.mimeType.startsWith("video/") ? <video controls playsInline preload="metadata" src={`/api/files/${latestFile.id}/download`} /> : latestFile.mimeType.startsWith("image/") ? <img src={`/api/files/${latestFile.id}/download`} alt={content.title} /> : (!isClient ? <a href={`/api/files/${latestFile.id}/download`}>{ar ? "فتح الملف" : "Open uploaded file"}</a> : <div className="review-empty">{ar ? "معاينة غير متوفرة" : "Preview unavailable"}</div>)}
+          {latestFile.mimeType.startsWith("video/") ? <video controls playsInline preload="metadata" src={`/api/files/${latestFile.id}/preview`} /> : latestFile.mimeType.startsWith("image/") ? <img src={`/api/files/${latestFile.id}/preview`} alt={content.title} /> : (!isClient ? <a href={`/api/files/${latestFile.id}/download`}>{ar ? "فتح الملف" : "Open uploaded file"}</a> : <div className="review-empty">{ar ? "معاينة غير متوفرة" : "Preview unavailable"}</div>)}
         </div> : <div className="review-empty"><b>{ar ? "ما في ملف مرفوع بعد." : "No visual uploaded yet."}</b><span>{isClient ? (ar ? "رح يوصلك المحتوى هون لما يصير جاهز." : "The content will appear here when it is ready.") : (ar ? "المونتير المعيّن بيرفع أول نسخة من هون." : "The assigned Editor can upload the first version below.")}</span></div>}
 
         {!isClient && latestVersion?.notes && <div className="feedback-box"><b>{ar ? "ملاحظة المونتير" : "Editor note"}</b><p>{latestVersion.notes}</p></div>}
