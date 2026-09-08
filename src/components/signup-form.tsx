@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function SignupForm() {
-  const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -30,8 +28,7 @@ export function SignupForm() {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Could not create account");
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not create account");
       } finally {
