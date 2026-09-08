@@ -43,7 +43,7 @@ export default async function ScriptsPage() {
     captionStatus: row.captionStatus,
     body: row.captions[0]?.caption || "",
     version: row.captions[0]?.version || 0,
-    decisionNote: row.approvals[0]?.notes[0]?.body || null,
+    decisionNote: row.status === "REVISION_REQUESTED" ? (row.approvals[0]?.notes[0]?.body || null) : null,
     updatedAt: row.updatedAt.toISOString(),
   }));
 
