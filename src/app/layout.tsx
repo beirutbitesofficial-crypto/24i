@@ -6,7 +6,7 @@ import "./nav-ux.css";
 import "./monthly-planner.css";
 import { PwaRegister } from "@/components/pwa-register";
 
-const appIcon = "/api/app-icon?v=full-logo-1";
+const appIcon = "/api/app-icon?v=full-logo-mac-2";
 const themeScript = `(function(){try{var s=localStorage.getItem('24i-theme');var t=s||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t;}catch(e){}})();`;
 
 export const metadata = {
@@ -14,7 +14,11 @@ export const metadata = {
   description: "Agency operating system",
   applicationName: "24i Production",
   manifest: "/manifest.webmanifest",
-  icons: { icon: appIcon, apple: appIcon },
+  icons: {
+    icon: [{ url: appIcon, sizes: "180x180", type: "image/png" }],
+    shortcut: appIcon,
+    apple: [{ url: appIcon, sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: { capable: true, title: "24i Production", statusBarStyle: "black-translucent" as const },
 };
 
