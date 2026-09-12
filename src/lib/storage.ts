@@ -28,7 +28,9 @@ const allowed = new Set([
 
 export function validateUpload(type: string, size: number) {
   if (!allowed.has(type)) throw new Error("UNSUPPORTED_FILE_TYPE");
-  if (size < 1 || size > 500 * 1024 * 1024) throw new Error("INVALID_FILE_SIZE");
+  // Do not impose an app-level maximum. Supabase Storage's project/global
+  // limit remains the source of truth, so large production videos are allowed.
+  if (!Number.isFinite(size) || size < 1) throw new Error("INVALID_FILE_SIZE");
 }
 
 export async function signUpload(clientId: string, name: string, type: string, size: number) {
@@ -44,7 +46,7 @@ export async function signUpload(clientId: string, name: string, type: string, s
   const url = await getSignedUrl(
     s3,
     new PutObjectCommand({ Bucket: bucket, Key: key }),
-    { expiresIn: 300 }
+    { expiresIn: 3600 }
   );
 
   return { key, url };
