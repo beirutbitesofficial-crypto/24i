@@ -9,6 +9,9 @@ const schema = z.object({
   thumbnailId: z.string().optional(),
   notes: z.string().max(2000).optional(),
   slides: z.array(z.object({ fileId: z.string(), position: z.number().int().min(0) })).optional(),
+  caption: z.string().min(1).max(10000).optional(),
+  hashtags: z.string().max(3000).optional(),
+  cta: z.string().max(1000).optional(),
 });
 
 function assetLabel(type: string) {
@@ -26,8 +29,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const content = await db.contentItem.findUnique({
     where: { id },
     include: {
-      client: { select: { brandName: true } },
+      client: {
+        select: {
+          brandName: true,
+          users: { include: { user: { include: { role: true } } } },
+        },
+      },
       versions: { orderBy: { version: "desc" }, take: 1 },
+      captions: { orderBy: { version: "desc" }, take: 1 },
     },
   });
   if (!content) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -42,6 +51,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   if (content.type !== "CAROUSEL" && !parsed.data.fileId) {
     return NextResponse.json({ error: "A visual file is required" }, { status: 400 });
+  }
+
+  const sendDirectlyToClient = user.role.key === "SOCIAL_MEDIA_MANAGER";
+  if (sendDirectlyToClient && !parsed.data.caption?.trim()) {
+    return NextResponse.json(
+      { error: "Caption is required when a Social Media Manager uploads content" },
+      { status: 400 }
+    );
   }
 
   const positions = parsed.data.slides?.map((x) => x.position) || [];
@@ -62,48 +79,107 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
     });
 
-    await tx.contentItem.update({
-      where: { id },
-      data: { status: "UPLOAD", visualStatus: "DRAFT", captionStatus: "DRAFT" },
-    });
-    await tx.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "CONTENT_VERSION_UPLOADED_FOR_COPY",
-        entityType: "ContentItem",
-        entityId: id,
-        newValue: { version: row.version },
-      },
-    });
+    if (sendDirectlyToClient) {
+      const caption = await tx.captionVersion.create({
+        data: {
+          contentId: id,
+          version: (content.captions[0]?.version || 0) + 1,
+          caption: parsed.data.caption!.trim(),
+          hashtags: parsed.data.hashtags,
+          cta: parsed.data.cta,
+          createdById: user.id,
+        },
+      });
+
+      await tx.contentItem.update({
+        where: { id },
+        data: {
+          status: "WAITING_CLIENT_APPROVAL",
+          visualStatus: "WAITING",
+          captionStatus: "WAITING",
+        },
+      });
+
+      await tx.approval.create({
+        data: {
+          contentId: id,
+          contentVersionId: row.id,
+          captionVersionId: caption.id,
+          reviewerId: user.id,
+          state: "WAITING",
+          scope: "ALL",
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "CONTENT_PACKAGE_SENT_TO_CLIENT",
+          entityType: "ContentItem",
+          entityId: id,
+          newValue: { visualVersion: row.version, captionVersion: caption.version },
+        },
+      });
+    } else {
+      await tx.contentItem.update({
+        where: { id },
+        data: { status: "UPLOAD", visualStatus: "DRAFT", captionStatus: "DRAFT" },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "CONTENT_VERSION_UPLOADED_FOR_COPY",
+          entityType: "ContentItem",
+          entityId: id,
+          newValue: { version: row.version },
+        },
+      });
+    }
+
     return row;
   });
 
-  // Prefer Social Media Managers assigned to this client. If none are assigned,
-  // fall back to all active SMMs so the handoff never gets lost.
-  let socialManagers = await db.user.findMany({
-    where: {
-      status: "ACTIVE",
-      role: { key: "SOCIAL_MEDIA_MANAGER" },
-      clientUsers: { some: { clientId: content.clientId } },
-    },
-    select: { id: true },
-  });
-  if (!socialManagers.length) {
-    socialManagers = await db.user.findMany({
-      where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
+  if (sendDirectlyToClient) {
+    const clientUserIds = content.client.users
+      .filter((x) => x.user.role.key === "CLIENT" && x.user.status === "ACTIVE")
+      .map((x) => x.userId);
+
+    if (clientUserIds.length) {
+      await notify(clientUserIds, {
+        kind: "APPROVAL",
+        title: "Content ready for approval",
+        body: `${user.name} uploaded ${content.title} with the caption. Review it, then approve or request changes.`,
+        deepLink: `/content/${id}`,
+      });
+    }
+  } else {
+    // Prefer Social Media Managers assigned to this client. If none are assigned,
+    // fall back to all active SMMs so the handoff never gets lost.
+    let socialManagers = await db.user.findMany({
+      where: {
+        status: "ACTIVE",
+        role: { key: "SOCIAL_MEDIA_MANAGER" },
+        clientUsers: { some: { clientId: content.clientId } },
+      },
       select: { id: true },
     });
-  }
+    if (!socialManagers.length) {
+      socialManagers = await db.user.findMany({
+        where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
+        select: { id: true },
+      });
+    }
 
-  const recipients = [...new Set(socialManagers.map((x) => x.id).filter((recipientId) => recipientId !== user.id))];
-  if (recipients.length) {
-    const label = assetLabel(content.type);
-    await notify(recipients, {
-      kind: "APPROVAL",
-      title: `${label} uploaded — check it`,
-      body: `${user.name} uploaded ${content.title} for ${content.client.brandName}. Add the caption, then confirm to send it to the client.`,
-      deepLink: `/content/${id}`,
-    });
+    const recipients = [...new Set(socialManagers.map((x) => x.id).filter((recipientId) => recipientId !== user.id))];
+    if (recipients.length) {
+      const label = assetLabel(content.type);
+      await notify(recipients, {
+        kind: "APPROVAL",
+        title: `${label} uploaded — check it`,
+        body: `${user.name} uploaded ${content.title} for ${content.client.brandName}. Add the caption, then confirm to send it to the client.`,
+        deepLink: `/content/${id}`,
+      });
+    }
   }
 
   return NextResponse.json(version, { status: 201 });
