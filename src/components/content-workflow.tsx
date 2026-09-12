@@ -13,6 +13,7 @@ type Props = {
   canUpload: boolean;
   isCarousel: boolean;
   isClient: boolean;
+  isSocialMediaManager: boolean;
   storageReady: boolean;
   visualStatus: string;
   contentStatus: string;
@@ -74,6 +75,7 @@ export function ContentWorkflow({
   canUpload,
   isCarousel,
   isClient,
+  isSocialMediaManager,
   storageReady,
   visualStatus,
   contentStatus,
@@ -166,6 +168,14 @@ export function ContentWorkflow({
     const input = form.elements.namedItem("file") as HTMLInputElement;
     const files = Array.from(input.files || []);
     const notes = String(data.get("notes") || "").trim();
+    const directCaption = isSocialMediaManager ? String(data.get("caption") || "").trim() : "";
+    const directHashtags = isSocialMediaManager ? String(data.get("hashtags") || "").trim() : "";
+    const directCta = isSocialMediaManager ? String(data.get("cta") || "").trim() : "";
+
+    if (isSocialMediaManager && !directCaption) {
+      setMessage(ar ? "اكتب الكابشن قبل إرسال المحتوى للعميل." : "Add the caption before sending the content to the client.");
+      return;
+    }
 
     if (!files.length) {
       setMessage(isCarousel
@@ -195,7 +205,15 @@ export function ContentWorkflow({
           slides.push({ fileId, position: i });
         }
         setUploadLabel(ar ? "تسجيل النسخة…" : "Finalizing version…");
-        await request(`/api/content/${contentId}/versions`, { slides, notes: notes || undefined });
+        await request(`/api/content/${contentId}/versions`, {
+          slides,
+          notes: notes || undefined,
+          ...(isSocialMediaManager ? {
+            caption: directCaption,
+            hashtags: directHashtags || undefined,
+            cta: directCta || undefined,
+          } : {}),
+        });
       } else {
         if (files.length !== 1) throw new Error(ar ? "اختار ملف واحد لهذا النوع من المحتوى." : "Choose one file for this content type.");
         const file = files[0];
@@ -205,14 +223,26 @@ export function ContentWorkflow({
           setUploadProgress(Math.min(99, Math.max(0, percent)));
         });
         setUploadLabel(ar ? "تسجيل النسخة…" : "Finalizing version…");
-        await request(`/api/content/${contentId}/versions`, { fileId, notes: notes || undefined });
+        await request(`/api/content/${contentId}/versions`, {
+          fileId,
+          notes: notes || undefined,
+          ...(isSocialMediaManager ? {
+            caption: directCaption,
+            hashtags: directHashtags || undefined,
+            cta: directCta || undefined,
+          } : {}),
+        });
       }
 
       setUploadProgress(100);
       setUploadLabel(ar ? "اكتمل الرفع" : "Upload complete");
-    }, ar
-      ? `تم رفع V${currentVersion + 1}. وصل إشعار لمدير السوشيال ميديا ليضيف الكابشن.`
-      : `V${currentVersion + 1} uploaded. The Social Media Manager was notified to add the caption.`);
+    }, isSocialMediaManager
+      ? (ar
+          ? `تم رفع V${currentVersion + 1} مع الكابشن وإرسالها للعميل للموافقة.`
+          : `V${currentVersion + 1} uploaded with the caption and sent to the client for approval.`)
+      : (ar
+          ? `تم رفع V${currentVersion + 1}. وصل إشعار لمدير السوشيال ميديا ليضيف الكابشن.`
+          : `V${currentVersion + 1} uploaded. The Social Media Manager was notified to add the caption.`));
   }
 
   function clientDecision(decision: "APPROVED" | "REVISION_REQUESTED") {
@@ -257,9 +287,13 @@ export function ContentWorkflow({
           <span className="eyebrow">{ar ? "الإنتاج" : "PRODUCTION"}</span>
           <h2>{isCarousel ? (ar ? "رفع كاروسيل" : "Upload carousel") : (ar ? "رفع Reel / Post" : "Upload reel / post visual")}</h2>
           <p className="muted">
-            {ar
-              ? "بعد الرفع، الإشعار يروح أولاً لمدير السوشيال ميديا. العميل ما بيتنبّه إلا لما الكابشن يصير جاهز."
-              : "After upload, the Social Media Manager gets the notification first. The client is notified only after the caption is ready."}
+            {isSocialMediaManager
+              ? (ar
+                  ? "ارفع الفيديو/التصميم مع الكابشن. بعد اكتمال الرفع، يوصل إشعار للعميل مباشرة للموافقة."
+                  : "Upload the visual with the caption. When the upload finishes, the client is notified immediately for approval.")
+              : (ar
+                  ? "بعد الرفع، الإشعار يروح أولاً لمدير السوشيال ميديا. العميل ما بيتنبّه إلا لما الكابشن يصير جاهز."
+                  : "After upload, the Social Media Manager gets the notification first. The client is notified only after the caption is ready.")}
           </p>
           {!storageReady && <div className="notice">{ar ? "التخزين مش مجهّز بعد، لذلك الرفع المباشر متوقف مؤقتاً." : "Storage is not configured yet, so direct upload is temporarily disabled."}</div>}
           <form className="compact-form upload-version-form" onSubmit={uploadVersion}>
@@ -271,6 +305,12 @@ export function ContentWorkflow({
               {ar ? "ملاحظات النسخة" : "Version notes"}
               <textarea name="notes" rows={3} placeholder={ar ? "ملاحظة اختيارية للفريق" : "Optional production note"} />
             </label>
+
+            {isSocialMediaManager && <>
+              <label>{ar ? "الكابشن" : "Caption"}<textarea name="caption" rows={6} defaultValue={captionText || ""} required /></label>
+              <label>{ar ? "الهاشتاغات" : "Hashtags"}<textarea name="hashtags" rows={2} defaultValue={captionHashtags || ""} /></label>
+              <label>CTA<input name="cta" defaultValue={captionCta || ""} /></label>
+            </>}
 
             {uploadProgress !== null && (
               <div style={{ display: "grid", gap: 7 }} aria-live="polite">
@@ -295,7 +335,9 @@ export function ContentWorkflow({
                 ? (ar ? `جارٍ الرفع… ${uploadProgress}%` : `Uploading… ${uploadProgress}%`)
                 : busy
                   ? (ar ? "جارٍ الرفع…" : "Uploading…")
-                  : (ar ? `رفع V${currentVersion + 1} وإرسالها للـ SMM` : `Upload V${currentVersion + 1} & send to SMM`)}
+                  : isSocialMediaManager
+                    ? (ar ? `رفع V${currentVersion + 1} + الكابشن وإرسالها للعميل` : `Upload V${currentVersion + 1} + caption & send to client`)
+                    : (ar ? `رفع V${currentVersion + 1} وإرسالها للـ SMM` : `Upload V${currentVersion + 1} & send to SMM`)}
             </button>
           </form>
         </section>
