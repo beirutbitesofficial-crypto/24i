@@ -58,7 +58,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
   const workflow = <ContentWorkflow
     contentId={content.id} clientId={content.clientId} currentVersion={latestVersion?.version || 0} currentCaptionVersion={latestCaption?.version || 0}
     canWrite={hasPermission(user, "content.write")} canUpload={canUpload} canApprove={hasPermission(user, "content.approve")} canSchedule={hasPermission(user, "content.schedule")}
-    isCarousel={isCarousel} isClient={isClient} storageReady={storageReady} visualStatus={content.visualStatus} contentStatus={content.status}
+    isCarousel={isCarousel} isClient={isClient} isSocialMediaManager={user.role.key === "SOCIAL_MEDIA_MANAGER"} storageReady={storageReady} visualStatus={content.visualStatus} contentStatus={content.status}
     captionText={latestCaption?.caption || null} captionHashtags={latestCaption?.hashtags || null} captionCta={latestCaption?.cta || null} ar={ar}
   />;
 
