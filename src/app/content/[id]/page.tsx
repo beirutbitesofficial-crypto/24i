@@ -50,7 +50,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
   const storageReady = Boolean(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY && process.env.S3_BUCKET);
   const isClient = user.role.key === "CLIENT";
   const isCarousel = content.type === "CAROUSEL";
-  const reviewResolved = content.status === "APPROVED" || content.status === "REVISION_REQUESTED";
+  const reviewResolved = content.status === "REVISION_REQUESTED";
   const latestMediaPurged = Boolean(
     latestVersion && reviewResolved && (
       isCarousel
