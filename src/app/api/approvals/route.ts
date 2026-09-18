@@ -124,10 +124,15 @@ export async function POST(req: Request) {
     });
   }
 
-  // Client-reviewed media is temporary. Keep the decision, captions, notes and
-  // production metadata, but remove the heavy media from object storage once
-  // the client has approved it or sent revision notes.
-  if (user.role.key === "CLIENT" && parsed.data.scope === "ALL" && currentVersion) {
+  // Rejected media is temporary and can be purged immediately after the
+  // client sends revision notes. Approved media must remain available for
+  // scheduling/publishing and is cleaned up only after publishing.
+  if (
+    user.role.key === "CLIENT" &&
+    parsed.data.scope === "ALL" &&
+    state === "REVISION_REQUESTED" &&
+    currentVersion
+  ) {
     const assetIds = [...new Set([
       currentVersion.fileId,
       currentVersion.thumbnailId,
@@ -162,7 +167,7 @@ export async function POST(req: Request) {
       await db.auditLog.create({
         data: {
           userId: user.id,
-          action: "CONTENT_MEDIA_PURGED_AFTER_REVIEW",
+          action: "CONTENT_REJECTED_MEDIA_PURGED",
           entityType: "ContentItem",
           entityId: content.id,
           newValue: {
