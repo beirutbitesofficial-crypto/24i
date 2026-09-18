@@ -42,7 +42,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!content) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await authorize("content.upload", content.clientId);
-  if (user.role.key === "EDITOR" && content.ownerId !== user.id) {
+  if (user.role.key === "EDITOR" && content.ownerId && content.ownerId !== user.id) {
     return NextResponse.json({ error: "Editors can upload only content assigned to them" }, { status: 403 });
   }
 
