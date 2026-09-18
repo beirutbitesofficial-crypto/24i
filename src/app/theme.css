@@ -12,3 +12,10 @@ button:not(.burger-backdrop){position:relative;isolation:isolate;overflow:hidden
 @media(max-width:700px){.app-header{display:grid!important;grid-template-columns:1fr}.preference-controls{justify-content:flex-start;margin-top:2px}.preference-button{flex:1;max-width:170px}.page-heading h1{font-size:32px!important}.section-head{gap:8px}.metrics{gap:10px!important}.metrics article,.panel{border-radius:18px!important;padding:18px!important}.management-stack{gap:14px!important}.burger-nav a{padding:13px 14px!important;min-height:48px}.form-grid{gap:12px!important}button{min-height:44px}.panel:hover,.metrics article:hover,.role-card:hover{transform:none}}
 
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* Polished app motion: subtle, fast and non-distracting */
+@keyframes pageFade{from{opacity:0;transform:translate3d(0,6px,0)}to{opacity:1;transform:none}}
+@keyframes headingFade{from{opacity:0;transform:translate3d(-8px,0,0)}to{opacity:1;transform:none}}
+.workspace{animation:pageFade .28s ease-out both}.page-heading{animation:headingFade .34s cubic-bezier(.2,.8,.2,1) both}.section-head{animation:glassRise .3s .05s cubic-bezier(.2,.8,.2,1) both}.management-stack>.panel:nth-child(2){animation-delay:.035s}.management-stack>.panel:nth-child(3){animation-delay:.07s}.management-stack>.panel:nth-child(4){animation-delay:.105s}.management-stack>.panel:nth-child(5){animation-delay:.14s}.panel>a:active{transform:scale(.992)}.metrics article:active{transform:scale(.985)}
+@media(max-width:700px){.workspace{animation-duration:.22s}.page-heading{animation-duration:.26s}.panel,.metrics article{will-change:transform,opacity}}
