@@ -3,3 +3,16 @@
 
 /* Stable mobile drawer: one layout on every route */
 .burger-backdrop{opacity:0;pointer-events:none;transition:opacity .22s ease!important}.burger-backdrop.open{opacity:1;pointer-events:auto}.burger-drawer{display:flex!important;flex-direction:column!important;transform:translate3d(calc(-100% - 24px),0,0)!important;height:auto!important;max-height:calc(100dvh - 20px)!important;min-height:0!important}.burger-drawer.open{transform:translate3d(0,0,0)!important}.burger-drawer-head{flex:0 0 auto!important}.burger-nav{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-items:stretch!important;flex:1 1 auto!important;height:auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;scroll-behavior:smooth}.burger-nav a{flex:0 0 auto!important;margin:0!important}.drawer-account{position:relative!important;inset:auto!important;flex:0 0 auto!important;background:transparent!important;z-index:2}[dir="rtl"] .burger-drawer{transform:translate3d(calc(100% + 24px),0,0)!important}[dir="rtl"] .burger-drawer.open{transform:translate3d(0,0,0)!important}@media(max-width:700px){.burger-drawer{max-height:calc(100dvh - 16px)!important}.burger-nav{padding-bottom:8px!important}.burger-nav a{min-height:46px!important;padding:10px 11px!important}.drawer-account{margin-top:6px!important}}
+
+
+/* Final static mobile navigation layout */
+@media(max-width:700px){
+  .burger-drawer{top:8px!important;bottom:8px!important;height:calc(100dvh - 16px)!important;max-height:none!important;display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;padding:15px 13px 13px!important;overflow:hidden!important}
+  .burger-drawer-head{height:78px!important;min-height:78px!important;padding:2px 4px 13px!important;align-self:start!important}
+  .burger-nav{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-items:stretch!important;gap:4px!important;margin:8px 0 0!important;padding:2px 1px 8px!important;overflow-y:auto!important;overflow-x:hidden!important;min-height:0!important;scrollbar-width:none!important}
+  .burger-nav a{flex:0 0 46px!important;height:46px!important;min-height:46px!important;max-height:46px!important;padding:0 12px!important;margin:0!important;border-radius:13px!important;display:flex!important;align-items:center!important;gap:11px!important;font-size:14px!important;line-height:1!important}
+  .burger-nav::-webkit-scrollbar{display:none!important}
+  .nav-icon{width:22px!important;height:22px!important;flex:0 0 22px!important;display:grid!important;place-items:center!important}
+  .nav-label{line-height:1.15!important}
+  .drawer-account{height:70px!important;min-height:70px!important;margin:0!important;padding:10px 4px 2px!important;border-top:1px solid #ffffff18!important;align-self:end!important;background:#050607!important}
+}
