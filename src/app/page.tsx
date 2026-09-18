@@ -45,7 +45,7 @@ function homeGreeting(role: string, firstName: string, ar: boolean) {
 
   const pool = lines[role] || lines.ADMIN;
   const choices = ar ? pool.ar : pool.en;
-  const index = (now.getDate() + now.getMonth()) % choices.length;
+  const index = (now.getDate() + now.getMonth() + Math.floor(hour / 3)) % choices.length;
   return `${period}, ${firstName} — ${choices[index]}`;
 }
 
