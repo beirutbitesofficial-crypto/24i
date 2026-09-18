@@ -3,6 +3,7 @@ import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BurgerMenu } from "@/components/burger-menu";
 import { ArabicUi } from "@/components/arabic-ui";
+import { RouteMotion } from "@/components/route-motion";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type NavItem = { href: string; label: string; permission?: string; hideForClient?: boolean };
@@ -95,7 +96,7 @@ export function AppShell({ user, title, kicker, children }: { user: ShellUser; t
           <LanguageToggle language={user.language} />
         </div>
       </header>
-      {children}
+      <RouteMotion>{children}</RouteMotion>
       {ar && <ArabicUi />}
     </section>
   </main>;
