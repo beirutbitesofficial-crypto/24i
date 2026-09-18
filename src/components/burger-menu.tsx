@@ -47,7 +47,7 @@ export function BurgerMenu({ items, userName, roleName, signOutLabel, ar = false
     <button className="burger-button" aria-label={ar ? "فتح القائمة" : "Open menu"} aria-expanded={open} onClick={() => setOpen(true)}>
       <span /><span /><span />
     </button>
-    {open && <button className="burger-backdrop" aria-label={ar ? "إغلاق القائمة" : "Close menu"} onClick={() => setOpen(false)} />}
+    <button className={`burger-backdrop ${open ? "open" : ""}`} aria-hidden={!open} tabIndex={open ? 0 : -1} aria-label={ar ? "إغلاق القائمة" : "Close menu"} onClick={() => setOpen(false)} />}
     <aside className={`burger-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
       <div className="burger-drawer-head">
         <div><div className="brand">24i</div><small>{ar ? "مساحة العمل" : "Workspace"}</small></div>
