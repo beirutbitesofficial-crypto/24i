@@ -123,7 +123,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     } else {
       await tx.contentItem.update({
         where: { id },
-        data: { status: "UPLOAD", visualStatus: "DRAFT", captionStatus: "DRAFT" },
+        data: {
+          status: "UPLOAD",
+          visualStatus: "DRAFT",
+          captionStatus: "DRAFT",
+          ...(user.role.key === "EDITOR" && !content.ownerId ? { ownerId: user.id } : {}),
+        },
       });
       await tx.auditLog.create({
         data: {
