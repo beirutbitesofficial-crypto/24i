@@ -41,7 +41,12 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
   const slideFileMap = activeFileMap;
 
   const latestRevision = content.approvals.find((a) => a.state === "REVISION_REQUESTED" && a.notes.length);
-  const canUpload = hasPermission(user, "content.upload") && (user.role.key !== "EDITOR" || content.ownerId === user.id);
+  // Editors may upload planned content that has not been assigned yet. The first
+  // Editor who uploads it becomes the owner. Once an owner exists, other Editors
+  // cannot upload versions to that item.
+  const canUpload = hasPermission(user, "content.upload") && (
+    user.role.key !== "EDITOR" || !content.ownerId || content.ownerId === user.id
+  );
   const storageReady = Boolean(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY && process.env.S3_BUCKET);
   const isClient = user.role.key === "CLIENT";
   const isCarousel = content.type === "CAROUSEL";
