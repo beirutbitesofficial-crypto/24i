@@ -57,10 +57,17 @@ export function MonthlyContentPlanner({ clients, month, ar = false }: { clients:
 
     const types = alternateTypes(posts, reels);
     const maxDay = daysInMonth(month);
+    const today = new Date();
+    const todayMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    const firstAvailableDay = month === todayMonth ? Math.min(maxDay, today.getDate() + 1) : 1;
+    const availableDays = Math.max(1, maxDay - firstAvailableDay + 1);
     let reelIndex = 0;
     let postIndex = 0;
     const nextItems = types.map((type, index) => {
-      const day = Math.max(1, Math.min(maxDay, Math.round(((index + 1) * maxDay) / (types.length + 1))));
+      const day = Math.max(
+        firstAvailableDay,
+        Math.min(maxDay, Math.round(firstAvailableDay - 1 + ((index + 1) * availableDays) / (types.length + 1)))
+      );
       if (type === "REEL") reelIndex += 1; else postIndex += 1;
       return {
         type,
@@ -132,7 +139,7 @@ export function MonthlyContentPlanner({ clients, month, ar = false }: { clients:
           <option value="STATIC_POST">Post</option>
         </select>
         <input value={item.title} onChange={(e) => updateItem(index, { title: e.target.value })} placeholder={ar ? "عنوان المحتوى" : "Content title"} />
-        <input type="date" min={`${month}-01`} max={`${month}-${String(daysInMonth(month)).padStart(2, "0")}`} value={item.date} onChange={(e) => updateItem(index, { date: e.target.value })} />
+        <input type="date" min={dayString(month, firstAvailableDay)} max={`${month}-${String(daysInMonth(month)).padStart(2, "0")}`} value={item.date} onChange={(e) => updateItem(index, { date: e.target.value })} />
       </article>)}
       <button type="button" disabled={busy} onClick={() => void savePlan()}>{busy ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ خطة الشهر" : "Save monthly plan")}</button>
     </div>}
