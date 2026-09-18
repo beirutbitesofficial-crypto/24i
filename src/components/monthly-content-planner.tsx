@@ -43,6 +43,11 @@ export function MonthlyContentPlanner({ clients, month, ar = false }: { clients:
   const [message, setMessage] = useState("");
 
   const total = useMemo(() => posts + reels, [posts, reels]);
+  const today = new Date();
+  const todayMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const firstAvailableDay = month === todayMonth
+    ? Math.min(daysInMonth(month), today.getDate() + 1)
+    : 1;
 
   function buildPlan() {
     setMessage("");
@@ -57,9 +62,6 @@ export function MonthlyContentPlanner({ clients, month, ar = false }: { clients:
 
     const types = alternateTypes(posts, reels);
     const maxDay = daysInMonth(month);
-    const today = new Date();
-    const todayMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-    const firstAvailableDay = month === todayMonth ? Math.min(maxDay, today.getDate() + 1) : 1;
     const availableDays = Math.max(1, maxDay - firstAvailableDay + 1);
     let reelIndex = 0;
     let postIndex = 0;
