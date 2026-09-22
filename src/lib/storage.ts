@@ -69,6 +69,19 @@ export async function signPreview(key: string, mimeType: string) {
   );
 }
 
+export async function signPublishAsset(key: string, mimeType: string) {
+  return getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ResponseContentType: mimeType,
+      ResponseContentDisposition: "inline",
+    }),
+    { expiresIn: 86400 }
+  );
+}
+
 export async function deleteStoredObject(key: string) {
   if (!bucket) throw new Error("STORAGE_NOT_CONFIGURED");
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
