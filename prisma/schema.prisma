@@ -175,6 +175,7 @@ model Client {
   invoices        Invoice[]
   expenses        Expense[]
   files           FileObject[]
+  socialChannels  SocialChannel[]
 }
 
 model ClientUser {
@@ -286,6 +287,7 @@ model ContentItem {
   approvals     Approval[]
   calendar      CalendarEntry?
   files         FileObject[]
+  publishingAttempts PublishingAttempt[]
 
   @@index([clientId, status])
 }
@@ -368,6 +370,44 @@ model CalendarEntry {
   scheduledAt      DateTime
   publishingStatus WorkflowStatus @default(SCHEDULED)
   content          ContentItem    @relation(fields: [contentId], references: [id], onDelete: Cascade)
+}
+
+
+model SocialChannel {
+  id          String              @id @default(cuid())
+  clientId    String
+  provider    String              @default("BUFFER")
+  service     String
+  channelId   String
+  name        String?
+  active      Boolean             @default(true)
+  autoPublish Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  attempts    PublishingAttempt[]
+
+  @@unique([provider, channelId])
+  @@index([clientId, active])
+}
+
+model PublishingAttempt {
+  id              String        @id @default(cuid())
+  contentId       String
+  socialChannelId String
+  provider        String        @default("BUFFER")
+  status          String        @default("PENDING")
+  providerPostId  String?
+  error           String?
+  attempts        Int           @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  content         ContentItem   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  socialChannel   SocialChannel @relation(fields: [socialChannelId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, socialChannelId])
+  @@index([contentId, status])
 }
 
 model Notification {
