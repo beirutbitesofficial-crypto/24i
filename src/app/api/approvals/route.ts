@@ -4,6 +4,7 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { deleteStoredObject } from "@/lib/storage";
+import { publishApprovedContent } from "@/lib/publishing";
 
 const schema = z.object({
   contentId: z.string(),
@@ -122,6 +123,31 @@ export async function POST(req: Request) {
         : `${content.client.brandName} requested changes on ${content.title}: ${parsed.data.note}`,
       deepLink: `/content/${content.id}`,
     });
+  }
+
+  if (user.role.key === "CLIENT" && parsed.data.scope === "ALL" && state === "APPROVED") {
+    try {
+      const publishing = await publishApprovedContent(content.id);
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "AUTO_PUBLISH_TRIGGERED",
+          entityType: "ContentItem",
+          entityId: content.id,
+          newValue: publishing,
+        },
+      });
+    } catch (error) {
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "AUTO_PUBLISH_TRIGGER_FAILED",
+          entityType: "ContentItem",
+          entityId: content.id,
+          newValue: { error: error instanceof Error ? error.message : "Unknown publishing error" },
+        },
+      });
+    }
   }
 
   // Rejected media is temporary and can be purged immediately after the
