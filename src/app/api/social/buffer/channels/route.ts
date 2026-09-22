@@ -3,7 +3,7 @@ import { authorize } from "@/lib/auth";
 import { bufferConfigured, listBufferChannels } from "@/lib/buffer";
 
 export async function GET() {
-  await authorize("settings.read");
+  await authorize("clients.read");
   if (!bufferConfigured()) return NextResponse.json({ configured: false, groups: [] });
 
   try {
