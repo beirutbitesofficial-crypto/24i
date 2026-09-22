@@ -3,6 +3,7 @@ import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ContentWorkflow } from "@/components/content-workflow";
+import { reconcilePublishingAttempts } from "@/lib/publishing";
 
 const statusAr: Record<string, string> = {
   NOT_REQUIRED: "غير مطلوب", DRAFT: "مسودة", WAITING: "بانتظار الموافقة", APPROVED: "موافق عليه", REVISION_REQUESTED: "مطلوب تعديل",
@@ -16,6 +17,12 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
   const ar = user.language === "AR";
   const { id } = await params;
 
+  try {
+    await reconcilePublishingAttempts(id);
+  } catch {
+    // Publishing status checks must never block the content review screen.
+  }
+
   const content = await db.contentItem.findUnique({
     where: { id },
     include: {
@@ -24,6 +31,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
       captions: { orderBy: { version: "desc" } },
       approvals: { include: { notes: true }, orderBy: { createdAt: "desc" } },
       calendar: true,
+      publishingAttempts: { include: { socialChannel: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!content) notFound();
@@ -109,6 +117,18 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
           <p>{ar ? "الموعد المخطط: " : "Planned: "}<b>{content.plannedAt?.toLocaleString() || (ar ? "غير مجدول" : "Not scheduled")}</b></p>
           {content.calendar && <p>{ar ? "التقويم: " : "Calendar: "}<b>{content.calendar.scheduledAt.toLocaleString()}</b></p>}
         </section>
+
+        {content.publishingAttempts.length > 0 && <section className="panel">
+          <span className="eyebrow">{ar ? "النشر التلقائي" : "AUTO PUBLISH"}</span>
+          <h2>{ar ? "حالة المنصات" : "Platform status"}</h2>
+          {content.publishingAttempts.map((attempt) => <div className="approval-line" key={attempt.id}>
+            <div>
+              <b>{attempt.socialChannel.name || attempt.socialChannel.service}</b>
+              <span>{attempt.status}</span>
+            </div>
+            {attempt.error && <p>{attempt.error}</p>}
+          </div>)}
+        </section>}
 
         <section className="panel">
           <span className="eyebrow">{ar ? "آخر كابشن" : "LATEST CAPTION"}</span>
