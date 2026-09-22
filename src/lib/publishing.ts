@@ -12,7 +12,7 @@ function postText(caption: { caption: string; hashtags: string | null; cta: stri
 }
 
 function instagramMetadata(type: string) {
-  const value = type === "STORY" ? "story" : type === "REEL" ? "reel" : "post";
+  const value = type === "STORY" ? "story" : type === "REEL" ? "reel" : type === "CAROUSEL" ? "carousel" : "post";
   return { instagram: { type: value, shouldShareToFeed: value !== "story" } };
 }
 
@@ -34,9 +34,10 @@ export async function publishApprovedContent(contentId: string) {
   if (!version || !caption) throw new Error("CONTENT_NOT_READY_FOR_PUBLISHING");
 
   const platformSet = new Set(content.platform.map(normalizedPlatform));
+  const supportedServices = new Set(["instagram", "facebook", "tiktok"]);
   const channels = content.client.socialChannels.filter((channel) => {
     const service = normalizedPlatform(channel.service);
-    return platformSet.size === 0 || platformSet.has(service);
+    return supportedServices.has(service) && (platformSet.size === 0 || platformSet.has(service));
   });
 
   if (!channels.length) return { skipped: "NO_MATCHING_AUTO_PUBLISH_CHANNELS" as const };
@@ -52,7 +53,7 @@ export async function publishApprovedContent(contentId: string) {
   const fileMap = new Map(files.map((file) => [file.id, file]));
 
   const orderedFiles = version.slides.length
-    ? version.slides.map((slide) => fileMap.get(slide.fileId)).filter((file): file is NonNullable<typeof file> => Boolean(file))
+    ? version.slides.map((slide) => fileMap.get(slide.fileId)).filter((file): file is (typeof files)[number] => Boolean(file))
     : version.fileId
       ? [fileMap.get(version.fileId)].filter((file): file is NonNullable<typeof file> => Boolean(file))
       : [];
