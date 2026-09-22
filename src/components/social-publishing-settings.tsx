@@ -26,10 +26,12 @@ export function SocialPublishingSettings({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  const channels = useMemo(() => groups.flatMap((group) => group.channels.map((channel) => ({
-    ...channel,
-    organizationName: group.organization.name,
-  }))), [groups]);
+  const channels = useMemo(() => groups.flatMap((group) => group.channels
+    .filter((channel) => ["instagram", "facebook", "tiktok"].includes(channel.service.toLowerCase()))
+    .map((channel) => ({
+      ...channel,
+      organizationName: group.organization.name,
+    }))), [groups]);
 
   useEffect(() => {
     setSelected(new Set(mappings.filter((item) => item.clientId === clientId && item.autoPublish).map((item) => item.channelId)));
@@ -119,7 +121,7 @@ export function SocialPublishingSettings({
       <p className="muted">
         {ar
           ? "اختار العميل، وبعدها القنوات التي يجب أن ينزل عليها المحتوى فور موافقته."
-          : "Choose a client, then select the channels that should publish immediately after approval."}
+          : "Choose a client, then select the Instagram, Facebook and TikTok channels that should publish immediately after approval."}
       </p>
 
       <div className="compact-form">
