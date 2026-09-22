@@ -14,7 +14,7 @@ const schema = z.object({
 });
 
 export async function GET() {
-  await authorize("settings.read");
+  await authorize("clients.read");
   const rows = await db.socialChannel.findMany({
     where: { provider: "BUFFER" },
     orderBy: [{ clientId: "asc" }, { service: "asc" }, { name: "asc" }],
@@ -23,7 +23,10 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const user = await authorize("settings.write");
+  const user = await authorize("clients.read");
+  if (!["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"].includes(user.role.key)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
