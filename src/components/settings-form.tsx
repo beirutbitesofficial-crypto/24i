@@ -37,8 +37,8 @@ export function SettingsForm({ initial, ar = false }: { initial: Settings; ar?: 
     } finally { setTestBusy(false); }
   }
 
-  return <div className="management-stack">
+  return <>
     <section className="panel"><div className="section-head"><div><span className="eyebrow">{ar ? "الوكالة" : "AGENCY"}</span><h2>{ar ? "الإعدادات العامة" : "General settings"}</h2></div><span className="muted">{ar ? "المفاتيح السرية تبقى محفوظة داخل Hostinger" : "Sensitive secrets stay in Hostinger environment variables"}</span></div>{message&&<div className="notice">{message}</div>}<form className="form-grid compact-form" onSubmit={submit}><label>{ar ? "اسم الشركة" : "Company name"}<input name="companyName" defaultValue={initial.companyName} required/></label><label>{ar ? "العملة" : "Currency"}<input value="USD" disabled readOnly/></label><label>{ar ? "المنطقة الزمنية" : "Timezone"}<input name="timezone" defaultValue={initial.timezone} required/></label><label>{ar ? "اللغة الافتراضية" : "Default language"}<select name="defaultLanguage" defaultValue={initial.defaultLanguage}><option value="EN">English</option><option value="AR">العربية</option></select></label><button disabled={busy}>{busy ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ الإعدادات" : "Save settings")}</button></form></section>
     <section className="panel"><div className="section-head"><div><span className="eyebrow">PUSH</span><h2>{ar ? "اختبار الإشعارات" : "Test notifications"}</h2></div><span className="muted">{ar ? "للمدير فقط" : "Admin only"}</span></div><p className="muted">{ar ? "أرسل إشعارًا تجريبيًا لكل المستخدمين النشطين. فقط الأجهزة التي سمحت بالإشعارات ستستلم Push على الهاتف." : "Send one test push to every active user. Only devices that previously allowed notifications will receive the iPhone push."}</p><button type="button" disabled={testBusy} onClick={() => void sendTestNotification()}>{testBusy ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال إشعار تجريبي لكل المستخدمين" : "Send test notification to all users")}</button></section>
-  </div>;
+  </>;
 }
