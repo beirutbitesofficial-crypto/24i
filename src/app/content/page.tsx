@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
+import { Badge, Empty, humanize } from "@/components/ui";
 import { ContentManager } from "@/components/content-manager";
 import { redirect } from "next/navigation";
 
@@ -24,7 +25,7 @@ const statusAr: Record<string, string> = {
 };
 
 export default async function Content() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "content.read")) redirect("/");
   const ar = user.language === "AR";
   const ids = assignedClientIds(user);
@@ -39,14 +40,14 @@ export default async function Content() {
     canWrite ? db.user.findMany({ where: { status: "ACTIVE", role: { key: { in: ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER"] } } }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
-  const s = (value: string) => ar ? (statusAr[value] || value.replaceAll("_", " ")) : value.replaceAll("_", " ");
+  const s = (value: string) => ar ? (statusAr[value] || humanize(value)) : humanize(value);
 
   return <AppShell user={user} title="Content" kicker="PRODUCTION">
     <div className="management-stack">
       {canWrite && <ContentManager clients={clients} owners={owners} ar={ar} />}
-      <div className="panel tablewrap"><table><thead><tr>
-        <th>{ar ? "المحتوى" : "Content"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "النوع" : "Type"}</th><th>{ar ? "النسخة" : "Version"}</th><th>{ar ? "التصميم/الفيديو" : "Visual"}</th><th>{ar ? "الكابشن" : "Caption"}</th><th>{ar ? "النشر" : "Publishing"}</th>
-      </tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><Link href={`/content/${x.id}`}><b>{x.title}</b></Link><small>{x.platform.join(" · ")}</small></td><td>{x.client.brandName}</td><td>{x.type.replaceAll("_", " ")}</td><td>V{x.versions[0]?.version || 0}</td><td>{s(x.visualStatus)}</td><td>{s(x.captionStatus)}</td><td>{s(x.status)}</td></tr>)}</tbody></table>{!rows.length && <p>{ar ? "ما في محتوى بعد." : "No content yet."}</p>}</div>
+      <div className="panel tablewrap">{rows.length ? <table><thead><tr>
+        <th>{ar ? "المحتوى" : "Content"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "النوع" : "Type"}</th><th>{ar ? "النسخة" : "Version"}</th><th>{ar ? "التصميم/الفيديو" : "Visual"}</th><th>{ar ? "الكابشن" : "Caption"}</th><th>{ar ? "النشر" : "Workflow"}</th>
+      </tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><Link href={`/content/${x.id}`}><b>{x.title}</b></Link><small>{x.platform.join(" · ")}</small></td><td>{x.client.brandName}</td><td>{humanize(x.type)}</td><td>{x.versions[0] ? `V${x.versions[0].version}` : "—"}</td><td><Badge value={x.visualStatus} label={s(x.visualStatus)} /></td><td><Badge value={x.captionStatus} label={s(x.captionStatus)} /></td><td><Badge value={x.status} label={s(x.status)} /></td></tr>)}</tbody></table> : <Empty title={ar ? "ما في محتوى بعد" : "No content yet"} hint={canWrite ? (ar ? "أضف أول محتوى من الأعلى." : "Add the first content item above.") : undefined} />}</div>
     </div>
   </AppShell>;
 }

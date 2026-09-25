@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { requireUser, hasPermission } from "@/lib/auth";
+import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { UserManagement } from "@/components/user-management";
 
 export default async function UsersPage() {
-  const actor = await requireUser();
+  const actor = await requirePageUser();
   if (!hasPermission(actor, "users.read")) redirect("/");
 
   const [users, clients, roles] = await Promise.all([

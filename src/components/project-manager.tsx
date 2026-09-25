@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { CreatePanel, Notice } from "@/components/ui";
 
 type ClientOption = { id: string; brandName: string };
 
@@ -18,5 +19,5 @@ export function ProjectManager({ clients }: { clients: ClientOption[] }) {
     } catch (err) { setMessage(err instanceof Error ? err.message : "Could not create project"); }
     finally { setBusy(false); }
   }
-  return <section className="panel"><span className="eyebrow">NEW PROJECT</span><h2>Create project</h2>{message && <div className="notice">{message}</div>}<form className="form-grid compact-form" onSubmit={submit}><label>Client<select name="clientId" required>{clients.map((c) => <option key={c.id} value={c.id}>{c.brandName}</option>)}</select></label><label>Project name<input name="name" required /></label><label>Status<select name="status" defaultValue="ACTIVE"><option>ACTIVE</option><option>PAUSED</option><option>COMPLETED</option></select></label><label>Description<textarea name="description" rows={3} /></label><button disabled={busy || !clients.length}>Create project</button></form></section>;
+  return <CreatePanel title="Create project" hint="Group tasks and content under a client project"><Notice message={message} /><form className="form-grid compact-form" onSubmit={submit}><label>Client<select name="clientId" required>{clients.map((c) => <option key={c.id} value={c.id}>{c.brandName}</option>)}</select></label><label>Project name<input name="name" required /></label><label>Status<select name="status" defaultValue="ACTIVE"><option value="ACTIVE">Active</option><option value="PAUSED">Paused</option><option value="COMPLETED">Completed</option></select></label><label className="full-field">Description<textarea name="description" rows={3} /></label><button disabled={busy || !clients.length}>Create project</button></form></CreatePanel>;
 }

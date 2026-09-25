@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
+import { Badge, Empty, humanize } from "@/components/ui";
 import { ContentWorkflow } from "@/components/content-workflow";
 import { reconcilePublishingAttempts } from "@/lib/publishing";
 
@@ -12,7 +13,7 @@ const statusAr: Record<string, string> = {
 };
 
 export default async function ContentDetail({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "content.read")) redirect("/");
   const ar = user.language === "AR";
   const { id } = await params;
@@ -66,7 +67,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
         : latestVersion.fileId && !latestFile
     )
   );
-  const s = (value: string) => ar ? (statusAr[value] || value.replaceAll("_", " ")) : value.replaceAll("_", " ");
+  const s = (value: string) => ar ? (statusAr[value] || humanize(value)) : humanize(value);
 
   const workflow = <ContentWorkflow
     contentId={content.id} clientId={content.clientId} currentVersion={latestVersion?.version || 0} currentCaptionVersion={latestCaption?.version || 0}
@@ -75,12 +76,12 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
     captionText={latestCaption?.caption || null} captionHashtags={latestCaption?.hashtags || null} captionCta={latestCaption?.cta || null} ar={ar}
   />;
 
-  return <AppShell user={user} title={content.title} kicker={content.client.brandName.toUpperCase()}>
+  return <AppShell user={user} title={content.title} kicker={`${content.client.brandName} · ${humanize(content.type)}`}>
     <div className="management-stack">
       {!isClient && <div className="metrics">
-        <article><span>{ar ? "الفيديو/التصميم" : "Visual"}</span><b className="metric-text">{s(content.visualStatus)}</b></article>
-        <article><span>{ar ? "الكابشن" : "Caption"}</span><b className="metric-text">{s(content.captionStatus)}</b></article>
-        <article><span>{ar ? "النشر" : "Publishing"}</span><b className="metric-text">{s(content.status)}</b></article>
+        <article><span>{ar ? "الفيديو/التصميم" : "Visual"}</span><b className="metric-text"><Badge value={content.visualStatus} label={s(content.visualStatus)} /></b></article>
+        <article><span>{ar ? "الكابشن" : "Caption"}</span><b className="metric-text"><Badge value={content.captionStatus} label={s(content.captionStatus)} /></b></article>
+        <article><span>{ar ? "النشر" : "Publishing"}</span><b className="metric-text"><Badge value={content.status} label={s(content.status)} /></b></article>
       </div>}
 
       <section className="panel content-review-player">
@@ -113,7 +114,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
 
       {!isClient && <>
         <section className="panel">
-          <div className="section-head"><div><span className="eyebrow">{ar ? "التفاصيل" : "DETAILS"}</span><h2>{content.type.replaceAll("_", " ")}</h2></div><span className="muted">{content.platform.join(" · ")}</span></div>
+          <div className="section-head"><div><span className="eyebrow">{ar ? "التفاصيل" : "DETAILS"}</span><h2>{humanize(content.type)}</h2></div><span className="muted">{content.platform.join(" · ")}</span></div>
           <p>{ar ? "الموعد المخطط: " : "Planned: "}<b>{content.plannedAt?.toLocaleString() || (ar ? "غير مجدول" : "Not scheduled")}</b></p>
           {content.calendar && <p>{ar ? "التقويم: " : "Calendar: "}<b>{content.calendar.scheduledAt.toLocaleString()}</b></p>}
         </section>
@@ -124,7 +125,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
           {content.publishingAttempts.map((attempt) => <div className="approval-line" key={attempt.id}>
             <div>
               <b>{attempt.socialChannel.name || attempt.socialChannel.service}</b>
-              <span>{attempt.status}</span>
+              <Badge value={attempt.status} />
             </div>
             {attempt.error && <p>{attempt.error}</p>}
           </div>)}
@@ -141,7 +142,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
           <table><thead><tr><th>{ar ? "النسخة" : "Version"}</th><th>{ar ? "رفعها" : "Uploaded by"}</th><th>{ar ? "التاريخ" : "Date"}</th><th>{ar ? "ملاحظات" : "Notes"}</th><th>{ar ? "الملفات" : "Files"}</th></tr></thead><tbody>
             {content.versions.map((v) => {
               const activeSlides = v.slides.filter((slide) => activeFileMap.has(slide.fileId)).length;
-              return <tr key={v.id}><td>V{v.version}</td><td>{v.uploadedBy.name}</td><td>{v.createdAt.toLocaleString()}</td><td>{v.notes || "—"}</td><td>{v.fileId ? (activeFileMap.has(v.fileId) ? <a href={`/api/files/${v.fileId}/download`}>{ar ? "فتح" : "Open"}</a> : (ar ? "تمت إزالته بعد المراجعة" : "Removed after review")) : v.slides.length ? (activeSlides ? `${activeSlides}/${v.slides.length} ${ar ? "سلايد متوفر" : "slides available"}` : (ar ? "تمت إزالتها بعد المراجعة" : "Removed after review")) : "—"}</td></tr>;
+              return <tr key={v.id}><td>V{v.version}</td><td>{v.uploadedBy.name}</td><td className="nowrap">{v.createdAt.toLocaleString(ar ? "ar" : undefined, { dateStyle: "medium", timeStyle: "short" })}</td><td>{v.notes || "—"}</td><td>{v.fileId ? (activeFileMap.has(v.fileId) ? <a href={`/api/files/${v.fileId}/download`}>{ar ? "فتح" : "Open"}</a> : (ar ? "تمت إزالته بعد المراجعة" : "Removed after review")) : v.slides.length ? (activeSlides ? `${activeSlides}/${v.slides.length} ${ar ? "سلايد متوفر" : "slides available"}` : (ar ? "تمت إزالتها بعد المراجعة" : "Removed after review")) : "—"}</td></tr>;
             })}
           </tbody></table>
           {!content.versions.length && <p>{ar ? "ما في نسخ إنتاج بعد." : "No production versions yet."}</p>}
@@ -149,7 +150,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
 
         <section className="panel">
           <span className="eyebrow">{ar ? "الملاحظات" : "FEEDBACK"}</span><h2>{ar ? "سجل الموافقات" : "Approval history"}</h2>
-          {content.approvals.length ? content.approvals.map((a) => <article className="approval-line" key={a.id}><div><b>{a.scope}</b><span>{s(a.state)}</span></div><small>{a.decidedAt?.toLocaleString() || a.createdAt.toLocaleString()}</small>{a.notes.map((n) => <p key={n.id}>{n.body}</p>)}</article>) : <p>{ar ? "ما في نشاط موافقات بعد." : "No approval activity yet."}</p>}
+          {content.approvals.length ? content.approvals.map((a) => <article className="approval-line" key={a.id}><div><b>{humanize(a.scope)}</b><Badge value={a.state} label={s(a.state)} /></div><small>{a.decidedAt?.toLocaleString() || a.createdAt.toLocaleString()}</small>{a.notes.map((n) => <p key={n.id}>{n.body}</p>)}</article>) : <Empty title={ar ? "ما في نشاط موافقات بعد" : "No approval activity yet"} />}
         </section>
       </>}
     </div>

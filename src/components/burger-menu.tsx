@@ -4,23 +4,26 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/logout-button";
+import { Icon } from "@/components/ui";
 
 type Item = { href: string; label: string };
 
 const icons: Record<string, string> = {
-  "/": "⌂",
-  "/notifications": "🔔",
-  "/users": "👥",
-  "/clients": "🤝",
-  "/projects": "📁",
-  "/tasks": "✓",
-  "/content": "▶",
-  "/calendar": "📅",
-  "/files": "🗂",
-  "/finance": "$",
-  "/reports": "📊",
-  "/audit": "🛡",
-  "/settings": "⚙",
+  "/": "dashboard",
+  "/notifications": "bell",
+  "/users": "users",
+  "/clients": "briefcase",
+  "/projects": "folder",
+  "/tasks": "check",
+  "/content": "image",
+  "/scripts": "script",
+  "/shooting": "camera",
+  "/calendar": "calendar",
+  "/files": "file",
+  "/finance": "wallet",
+  "/reports": "chart",
+  "/audit": "shield",
+  "/settings": "settings",
 };
 
 export function BurgerMenu({ items, userName, roleName, signOutLabel, ar = false }: { items: Item[]; userName: string; roleName: string; signOutLabel: string; ar?: boolean }) {
@@ -45,7 +48,7 @@ export function BurgerMenu({ items, userName, roleName, signOutLabel, ar = false
 
   return <>
     <button className="burger-button" aria-label={ar ? "فتح القائمة" : "Open menu"} aria-expanded={open} onClick={() => setOpen(true)}>
-      <span /><span /><span />
+      <Icon name="menu" size={20} />
     </button>
     <button className={`burger-backdrop ${open ? "open" : ""}`} aria-hidden={!open} tabIndex={open ? 0 : -1} aria-label={ar ? "إغلاق القائمة" : "Close menu"} onClick={() => setOpen(false)} />
     <aside className={`burger-drawer ${open ? "open" : ""}`} aria-hidden={!open}>
@@ -69,7 +72,7 @@ export function BurgerMenu({ items, userName, roleName, signOutLabel, ar = false
               setOpen(false);
             }}
           >
-            <span className="nav-icon" aria-hidden="true">{icons[item.href] || "•"}</span>
+            <span className="nav-icon" aria-hidden="true"><Icon name={icons[item.href] || "file"} /></span>
             <span className="nav-label">{item.label}</span>
             {pending && <span className="nav-spinner" aria-hidden="true" />}
           </Link>;

@@ -1,9 +1,10 @@
+import { api } from "@/lib/http";
 import React from "react";
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const url = new URL(req.url);
   const requested = Number(url.searchParams.get("size"));
   const size = requested === 192 ? 192 : 512;
@@ -38,3 +39,5 @@ export async function GET(req: Request) {
     }
   );
 }
+
+export const GET = api(handleGET);

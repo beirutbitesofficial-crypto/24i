@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireUser, hasPermission } from "@/lib/auth";
+import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { SettingsForm } from "@/components/settings-form";
@@ -7,7 +7,7 @@ import { SocialPublishingSettings } from "@/components/social-publishing-setting
 import { bufferConfigured } from "@/lib/buffer";
 
 export default async function SettingsPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "settings.read") && user.role.key !== "ADMIN") redirect("/");
   const [row, clients, socialChannels] = await Promise.all([
     db.setting.findUnique({ where: { key: "agency_profile" } }),

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/ui";
 
-export function LogoutButton({ label = "Sign out" }: { label?: string }) {
+export function LogoutButton({ label = "Sign out", variant = "text" }: { label?: string; variant?: "text" | "icon" }) {
   const [busy, setBusy] = useState(false);
 
   async function currentPushEndpoint() {
@@ -19,6 +20,7 @@ export function LogoutButton({ label = "Sign out" }: { label?: string }) {
   async function logout() {
     setBusy(true);
     try {
+      // Unregister this device's push subscription so a signed-out device stops receiving alerts.
       const pushEndpoint = await currentPushEndpoint();
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -31,5 +33,8 @@ export function LogoutButton({ label = "Sign out" }: { label?: string }) {
     }
   }
 
+  if (variant === "icon") {
+    return <button type="button" className="icon-button" title={label} aria-label={label} disabled={busy} onClick={() => void logout()}><Icon name="logout" /></button>;
+  }
   return <button type="button" className="logout-button" disabled={busy} onClick={() => void logout()}>{busy ? "…" : label}</button>;
 }

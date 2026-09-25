@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
@@ -12,9 +13,9 @@ const schema = z.object({
   decision: z.enum(["APPROVED", "REVISION_REQUESTED"]),
   note: z.string().trim().max(2000).optional(),
   slideId: z.string().optional(),
-}).refine((v) => v.decision === "APPROVED" || !!v.note, { message: "Revision note is required" });
+}).refine((v) => v.decision === "APPROVED" || !!v.note, { message: "Revision note is required", path: ["note"] });
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
@@ -31,6 +32,15 @@ export async function POST(req: Request) {
   const user = await authorize("content.approve", content.clientId);
   const state = parsed.data.decision;
   const currentVersion = content.versions[0];
+  const coversVisual = parsed.data.scope !== "CAPTION";
+  const coversCaption = parsed.data.scope !== "VISUAL";
+
+  // Nothing can be approved before it has been submitted.
+  if (coversVisual && !currentVersion) return NextResponse.json({ error: "No visual version has been submitted yet" }, { status: 409 });
+  if (coversCaption && !content.captions[0]) return NextResponse.json({ error: "No caption has been submitted yet" }, { status: 409 });
+  if (parsed.data.slideId && !currentVersion?.slides.some((slide) => slide.id === parsed.data.slideId)) {
+    return NextResponse.json({ error: "Slide does not belong to the latest version" }, { status: 400 });
+  }
 
   if (user.role.key === "CLIENT") {
     if (parsed.data.scope !== "ALL") {
@@ -74,6 +84,11 @@ export async function POST(req: Request) {
     }
 
     await tx.contentItem.update({ where: { id: content.id }, data: update });
+    // Close the pending review requests this decision answers.
+    await tx.approval.updateMany({
+      where: { contentId: content.id, state: "WAITING", id: { not: approval.id }, scope: parsed.data.scope === "ALL" ? { in: ["VISUAL", "CAPTION", "ALL"] } : parsed.data.scope },
+      data: { state, decidedAt: new Date() },
+    });
     await tx.auditLog.create({
       data: {
         userId: user.id,
@@ -209,3 +224,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json(result, { status: 201 });
 }
+
+export const POST = api(handlePOST);

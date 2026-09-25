@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
@@ -9,7 +10,7 @@ const allPermissions = new Set([
 
 const schema = z.object({ permissions: z.array(z.string()).max(100) });
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ key: string }> }) {
+async function handlePATCH(req: Request, { params }: { params: Promise<{ key: string }> }) {
   const actor = await requireUser();
   if (actor.role.key !== "ADMIN") return NextResponse.json({ error: "Admin only" }, { status: 403 });
   const { key } = await params;
@@ -27,3 +28,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ key: s
   });
   return NextResponse.json({ ok: true, permissions: unique });
 }
+
+export const PATCH = api(handlePATCH);

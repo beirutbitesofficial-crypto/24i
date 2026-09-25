@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
@@ -15,7 +16,7 @@ const schema = z.object({
 
 const allowedRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"]);
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   if (parsed.data.endAt <= parsed.data.startAt) {
@@ -116,3 +117,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json(reservation, { status: 201 });
 }
+
+export const POST = api(handlePOST);

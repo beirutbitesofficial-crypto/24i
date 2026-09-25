@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
+import { Badge, humanize } from "@/components/ui";
 import { MonthlyContentPlanner } from "@/components/monthly-content-planner";
 import { redirect } from "next/navigation";
 
@@ -28,7 +29,7 @@ function moveMonth(month: string, offset: number) {
 }
 
 export default async function Calendar({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "calendar.read")) redirect("/");
   const ar = user.language === "AR";
   const params = await searchParams;
@@ -126,9 +127,9 @@ export default async function Calendar({ searchParams }: { searchParams: Promise
             <td>{x.scheduledAt.toLocaleDateString(ar ? "ar-LB" : "en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</td>
             <td>{x.content.client.brandName}</td>
             <td><Link href={`/content/${x.content.id}`}><b>{x.content.title}</b></Link><small>{x.content.platform.join(" · ")}</small></td>
-            <td>{x.content.type === "STATIC_POST" ? (ar ? "بوست" : "Post") : x.content.type === "REEL" ? (ar ? "ريل" : "Reel") : x.content.type.replaceAll("_", " ")}</td>
-            <td>{x.content.visualStatus} / {x.content.captionStatus}</td>
-            <td>{x.content.status.replaceAll("_", " ")}</td>
+            <td>{x.content.type === "STATIC_POST" ? (ar ? "بوست" : "Post") : x.content.type === "REEL" ? (ar ? "ريل" : "Reel") : humanize(x.content.type)}</td>
+            <td><Badge value={x.content.visualStatus} label={`${ar ? "التصميم" : "Visual"}: ${humanize(x.content.visualStatus)}`} /> <Badge value={x.content.captionStatus} label={`${ar ? "الكابشن" : "Caption"}: ${humanize(x.content.captionStatus)}`} /></td>
+            <td><Badge value={x.content.status} /></td>
           </tr>)}</tbody>
         </table>
         {!rows.length && <p>{ar ? "ما في محتوى مخطط لهيدا الشهر بعد." : "No content planned for this month yet."}</p>}

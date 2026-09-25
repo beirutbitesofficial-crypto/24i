@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "node:crypto";
 
@@ -36,7 +36,7 @@ export function validateUpload(type: string, size: number) {
 export async function signUpload(clientId: string, name: string, type: string, size: number) {
   validateUpload(type, size);
   const ext = name.includes(".")
-    ? name.slice(name.lastIndexOf(".")).replace(/[^.a-z0-9]/gi, "")
+    ? name.slice(name.lastIndexOf(".")).replace(/[^.a-z0-9]/gi, "").slice(0, 10)
     : "";
   const key = `clients/${clientId}/${crypto.randomUUID()}${ext}`;
 
@@ -52,8 +52,32 @@ export async function signUpload(clientId: string, name: string, type: string, s
   return { key, url };
 }
 
-export async function signDownload(key: string) {
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 120 });
+export const isAllowedType = (type: string) => allowed.has(type);
+
+// Returns the stored object's real type and size, or null if the object does not exist.
+// Used so file records reflect what is actually in storage, not what the browser claimed.
+export async function statUpload(key: string) {
+  try {
+    const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    return {
+      mimeType: (head.ContentType ?? "").split(";")[0].trim().toLowerCase(),
+      size: head.ContentLength ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function signDownload(key: string, filename?: string) {
+  return getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ResponseContentDisposition: filename ? `attachment; filename="${filename.replace(/["\\\r\n]/g, "_")}"` : undefined,
+    }),
+    { expiresIn: 120 },
+  );
 }
 
 export async function signPreview(key: string, mimeType: string) {

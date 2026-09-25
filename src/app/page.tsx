@@ -1,17 +1,22 @@
+import Link from "next/link";
 import { currentUser, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { LoginForm } from "@/components/login-form";
 import { AppShell } from "@/components/app-shell";
-import Link from "next/link";
+import { AuthLayout } from "@/components/auth-layout";
+import { Empty, Icon } from "@/components/ui";
 
+// Returns a short title for the top bar plus a role-specific tagline for the page body.
 function homeGreeting(role: string, firstName: string, ar: boolean) {
-  const now = new Date();
-  const hour = now.getHours();
-  const day = now.getDay();
+  // Use the agency's local time (Beirut), not the server's timezone.
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Beirut", hour: "numeric", hourCycle: "h23", weekday: "short", day: "numeric", month: "numeric" }).formatToParts(new Date());
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const hour = Number(part("hour"));
+  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(part("weekday"));
   const weekend = day === 5 || day === 6 || day === 0;
 
   if (weekend) {
-    return ar ? `عطلة سعيدة، ${firstName} ✨` : `Have a nice weekend, ${firstName} ✨`;
+    return { title: ar ? `عطلة سعيدة، ${firstName}` : `Have a nice weekend, ${firstName}`, tagline: "" };
   }
 
   const period = hour < 12
@@ -45,55 +50,58 @@ function homeGreeting(role: string, firstName: string, ar: boolean) {
 
   const pool = lines[role] || lines.ADMIN;
   const choices = ar ? pool.ar : pool.en;
-  const index = (now.getDate() + now.getMonth() + Math.floor(hour / 3)) % choices.length;
-  return `${period}, ${firstName} — ${choices[index]}`;
+  const index = (Number(part("day")) + Number(part("month")) + Math.floor(hour / 3)) % choices.length;
+  return { title: ar ? `${period}، ${firstName}` : `${period}, ${firstName}`, tagline: choices[index] };
 }
 
 export default async function Home() {
   const user = await currentUser();
-  if (!user) return <main className="login"><section><div className="logo">24i</div><h1>Agency work, in one place.</h1><p>Sign in to manage production, approvals, calendars and finance.</p><LoginForm /></section></main>;
+  if (!user) return <AuthLayout title="Sign in" subtitle="Use the email and password your agency gave you."><LoginForm /></AuthLayout>;
 
   const ar = user.language === "AR";
-  const firstName = user.name.split(" ")[0];
-  const greeting = homeGreeting(user.role.key, firstName, ar);
+  const greeting = homeGreeting(user.role.key, user.name.split(" ")[0], ar);
   const clientIds = assignedClientIds(user);
   const scope = clientIds ? { clientId: { in: clientIds } } : {};
-  const approvalsPromise = db.contentItem.count({ where: { ...scope, status: "WAITING_CLIENT_APPROVAL" } });
-  const revisionsPromise = db.contentItem.count({ where: { ...scope, status: "REVISION_REQUESTED" } });
-  const notificationsPromise = db.notification.findMany({ where: { userId: user.id, readAt: null }, orderBy: { createdAt: "desc" }, take: 5 });
-
-  if (user.role.key === "CLIENT") {
-    const [approvals, revisions, scheduled, notifications] = await Promise.all([
-      approvalsPromise,
-      revisionsPromise,
-      db.contentItem.count({ where: { ...scope, status: "SCHEDULED" } }),
-      notificationsPromise,
-    ]);
-    return <AppShell user={user} title={greeting} kicker="TODAY">
-      <div className="metrics">
-        <article><span>{ar ? "بانتظار موافقتك" : "Waiting approval"}</span><b>{approvals}</b></article>
-        <article><span>{ar ? "طلبات التعديل" : "Revisions"}</span><b>{revisions}</b></article>
-        <article><span>{ar ? "محتوى مجدول" : "Scheduled content"}</span><b>{scheduled}</b></article>
-      </div>
-      <div className="section-head"><div><span className="eyebrow">{ar ? "المطلوب منك" : "YOUR ACTIONS"}</span><h2>{ar ? "مركز المتابعة" : "Action center"}</h2></div></div>
-      <div className="panel">{notifications.length ? notifications.map((n) => <Link key={n.id} href={n.deepLink}><b>{n.title}</b><span>{n.body}</span></Link>) : <p>{ar ? "ما في شي مطلوب منك حالياً ✅" : "You’re all caught up. ✅"}</p>}</div>
-    </AppShell>;
-  }
-
+  const isClient = user.role.key === "CLIENT";
   const taskWhere = user.role.key === "EDITOR"
     ? { assignees: { some: { userId: user.id } }, status: { not: "COMPLETED" as const } }
     : { ...scope, status: { not: "COMPLETED" as const } };
-  const [tasks, approvals, revisions, notifications] = await Promise.all([
-    db.task.count({ where: taskWhere }), approvalsPromise, revisionsPromise, notificationsPromise,
+
+  const [first, approvals, revisions, notifications, upcoming] = await Promise.all([
+    isClient ? db.contentItem.count({ where: { ...scope, status: "SCHEDULED" } }) : db.task.count({ where: taskWhere }),
+    db.contentItem.count({ where: { ...scope, status: "WAITING_CLIENT_APPROVAL" } }),
+    db.contentItem.count({ where: { ...scope, status: "REVISION_REQUESTED" } }),
+    db.notification.findMany({ where: { userId: user.id, readAt: null }, orderBy: { createdAt: "desc" }, take: 6 }),
+    db.calendarEntry.findMany({ where: { scheduledAt: { gte: new Date() }, ...(clientIds ? { content: { clientId: { in: clientIds } } } : {}) }, include: { content: { include: { client: true } } }, orderBy: { scheduledAt: "asc" }, take: 5 }),
   ]);
 
-  return <AppShell user={user} title={greeting} kicker="TODAY">
+  const metrics = [
+    isClient
+      ? { label: ar ? "محتوى مجدول" : "Scheduled content", value: first, icon: "calendar", href: "/calendar" }
+      : { label: ar ? "مهام مفتوحة" : "Open tasks", value: first, icon: "check", href: "/tasks" },
+    { label: isClient ? (ar ? "بانتظار موافقتك" : "Waiting your approval") : (ar ? "بانتظار الموافقة" : "Waiting approval"), value: approvals, icon: "clock", href: "/content" },
+    { label: ar ? "طلبات تعديل" : "Revisions requested", value: revisions, icon: "alert", href: "/content" },
+  ];
+  const today = new Intl.DateTimeFormat(ar ? "ar" : "en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "Asia/Beirut" }).format(new Date());
+
+  return <AppShell user={user} title={greeting.title} kicker={today}>
+    {greeting.tagline && <p className="lead">{greeting.tagline}</p>}
     <div className="metrics">
-      <article><span>{ar ? "مهام مفتوحة" : "Open tasks"}</span><b>{tasks}</b></article>
-      <article><span>{ar ? "بانتظار الموافقة" : "Waiting approval"}</span><b>{approvals}</b></article>
-      <article><span>{ar ? "طلبات تعديل" : "Revisions"}</span><b>{revisions}</b></article>
+      {metrics.map((m) => <Link key={m.label} href={m.href} className="metric"><span><Icon name={m.icon} size={16} />{m.label}</span><b>{m.value}</b></Link>)}
     </div>
-    <div className="section-head"><div><span className="eyebrow">{ar ? "الأولوية" : "PRIORITY"}</span><h2>{ar ? "مركز المتابعة" : "Action center"}</h2></div></div>
-    <div className="panel">{notifications.length ? notifications.map((n) => <Link key={n.id} href={n.deepLink}><b>{n.title}</b><span>{n.body}</span></Link>) : <p>{ar ? "كل شي مرتب، ما في تنبيهات جديدة ✅" : "You’re all caught up. ✅"}</p>}</div>
+    <div className="grid-2">
+      <section className="panel">
+        <div className="section-head"><div><span className="eyebrow">{isClient ? (ar ? "المطلوب منك" : "Your actions") : (ar ? "الأولوية" : "Action center")}</span><h2>{ar ? "إشعارات غير مقروءة" : "Unread notifications"}</h2></div><Link href="/notifications">{ar ? "عرض الكل" : "View all"}</Link></div>
+        {notifications.length
+          ? <div className="list">{notifications.map((n) => <Link key={n.id} href={n.deepLink}><span className="row-main"><b>{n.title}</b><span>{n.body}</span></span><Icon name="arrow" size={16} /></Link>)}</div>
+          : <Empty title={ar ? "كل شي مرتب ✅" : "You’re all caught up"} hint={ar ? "الموافقات والمهام الجديدة رح تظهر هون." : "New approvals, tasks and reminders will show up here."} />}
+      </section>
+      <section className="panel">
+        <div className="section-head"><div><span className="eyebrow">{ar ? "النشر" : "Publishing"}</span><h2>{ar ? "القادم" : "Coming up next"}</h2></div><Link href="/calendar">{ar ? "التقويم" : "Calendar"}</Link></div>
+        {upcoming.length
+          ? <div className="list">{upcoming.map((x) => <Link key={x.id} href={`/content/${x.contentId}`}><span className="row-main"><b>{x.content.title}</b><span>{x.content.client.brandName} · {x.content.platform.join(", ")}</span></span><small className="muted">{x.scheduledAt.toLocaleString(ar ? "ar" : "en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Beirut" })}</small></Link>)}</div>
+          : <Empty title={ar ? "لا شيء مجدول" : "Nothing scheduled"} hint={ar ? "المحتوى الموافق عليه يظهر هون بعد جدولته." : "Approved content appears here once it’s scheduled."} />}
+      </section>
+    </div>
   </AppShell>;
 }

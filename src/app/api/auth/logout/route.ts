@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -8,7 +9,7 @@ const input = z.object({
   pushEndpoint: z.string().url().optional(),
 });
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const user = await currentUser();
   const body = await req.json().catch(() => ({}));
   const parsed = input.safeParse(body);
@@ -25,3 +26,5 @@ export async function POST(req: Request) {
   (await cookies()).delete("session");
   return NextResponse.json({ ok: true });
 }
+
+export const POST = api(handlePOST);

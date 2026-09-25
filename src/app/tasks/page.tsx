@@ -1,6 +1,7 @@
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
+import { Badge, Empty, humanize, initials } from "@/components/ui";
 import { TaskManager } from "@/components/task-manager";
 import { TaskStatus } from "@/components/task-status";
 import { redirect } from "next/navigation";
@@ -9,7 +10,7 @@ const taskAr: Record<string, string> = { TODO: "جديدة", IN_PROGRESS: "قي�
 const priorityAr: Record<string, string> = { LOW: "منخفضة", MEDIUM: "متوسطة", HIGH: "عالية", URGENT: "عاجلة" };
 
 export default async function Tasks() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "tasks.read")) redirect("/");
   const ar = user.language === "AR";
   const ids = assignedClientIds(user);
@@ -32,9 +33,8 @@ export default async function Tasks() {
     <div className="management-stack">
       {canWrite && <TaskManager clients={clients} users={team.map((u) => ({ id: u.id, name: u.name, role: u.role.name }))} ar={ar} />}
       <div className="panel tablewrap">
-        <div className="section-head"><div><span className="eyebrow">{ar ? "المهام النشطة" : "ACTIVE TASKS"}</span><h2>{ar ? "المهام الحالية" : "Current workload"}</h2></div><span className="muted">{ar ? "المهمة المكتملة تُؤرشف تلقائياً" : "Completed tasks archive automatically"}</span></div>
-        <table><thead><tr><th>{ar ? "المهمة" : "Task"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "المكلّفون" : "Assignees"}</th><th>{ar ? "الموعد" : "Due"}</th><th>{ar ? "الأولوية" : "Priority"}</th><th>{ar ? "الحالة" : "Status"}</th>{canUpdate && <th>{ar ? "تحديث" : "Update"}</th>}</tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><b>{x.title}</b><small>{x.category}</small></td><td>{x.client?.brandName || "—"}</td><td>{x.assignees.map((a) => a.user.name).join(", ") || "—"}</td><td>{x.dueAt?.toLocaleString() || "—"}</td><td>{ar ? (priorityAr[x.priority] || x.priority) : x.priority}</td><td>{ar ? (taskAr[x.status] || x.status) : x.status.replaceAll("_", " ")}</td>{canUpdate && <td><TaskStatus taskId={x.id} current={x.status} ar={ar} /></td>}</tr>)}</tbody></table>
-        {!rows.length && <p>{ar ? "ما في مهام نشطة." : "No active tasks."}</p>}
+        <div className="section-head"><div><span className="eyebrow">{ar ? "المهام النشطة" : "Active tasks"}</span><h2>{ar ? "المهام الحالية" : "Current workload"}</h2></div><span className="hint">{ar ? "المهمة المكتملة تُؤرشف تلقائياً" : "Completed tasks archive automatically"}</span></div>
+        {rows.length ? <table><thead><tr><th>{ar ? "المهمة" : "Task"}</th><th>{ar ? "العميل" : "Client"}</th><th>{ar ? "المكلّفون" : "Assignees"}</th><th>{ar ? "الموعد" : "Due"}</th><th>{ar ? "الأولوية" : "Priority"}</th><th>{ar ? "الحالة" : "Status"}</th>{canUpdate && <th>{ar ? "تحديث" : "Update"}</th>}</tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td className="title-cell"><b>{x.title}</b><small>{x.category}</small></td><td>{x.client?.brandName || "—"}</td><td>{x.assignees.length ? <span className="avatar-stack" title={x.assignees.map((a) => a.user.name).join(", ")}>{x.assignees.map((a) => <span className="avatar avatar-sm" key={a.id} aria-label={a.user.name}>{initials(a.user.name)}</span>)}</span> : "—"}</td><td className="nowrap">{x.dueAt ? <span className={x.dueAt < new Date() ? "overdue" : undefined}>{x.dueAt.toLocaleDateString(ar ? "ar" : undefined, { month: "short", day: "numeric" })}<small>{x.dueAt.toLocaleTimeString(ar ? "ar" : undefined, { hour: "numeric", minute: "2-digit" })}</small></span> : "—"}</td><td><Badge value={x.priority} label={ar ? (priorityAr[x.priority] || x.priority) : humanize(x.priority)} /></td><td><Badge value={x.status} label={ar ? (taskAr[x.status] || x.status) : humanize(x.status)} /></td>{canUpdate && <td><TaskStatus taskId={x.id} current={x.status} ar={ar} /></td>}</tr>)}</tbody></table> : <Empty title={ar ? "ما في مهام نشطة" : "No active tasks"} hint={canWrite ? (ar ? "أنشئ أول مهمة من الأعلى." : "Create the first task above.") : undefined} />}
       </div>
     </div>
   </AppShell>;

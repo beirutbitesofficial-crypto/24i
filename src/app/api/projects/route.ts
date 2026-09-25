@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, assignedClientIds } from "@/lib/auth";
@@ -10,14 +11,14 @@ const schema = z.object({
   status: z.string().trim().min(1).max(40).default("ACTIVE"),
 });
 
-export async function GET() {
+async function handleGET() {
   const user = await authorize("projects.read");
   const ids = assignedClientIds(user);
   const rows = await db.project.findMany({ where: ids ? { clientId: { in: ids } } : {}, include: { client: true }, orderBy: { createdAt: "desc" } });
   return NextResponse.json(rows);
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const user = await authorize("projects.write", parsed.data.clientId);
@@ -28,3 +29,6 @@ export async function POST(req: Request) {
   });
   return NextResponse.json(project, { status: 201 });
 }
+
+export const GET = api(handleGET);
+export const POST = api(handlePOST);

@@ -1,8 +1,9 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/auth";
 import { bufferConfigured, listBufferChannels } from "@/lib/buffer";
 
-export async function GET() {
+async function handleGET() {
   await authorize("clients.read");
   if (!bufferConfigured()) return NextResponse.json({ configured: false, groups: [] });
 
@@ -16,3 +17,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = api(handleGET);

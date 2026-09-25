@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/ui";
 
 export function LanguageToggle({ language }: { language: "EN" | "AR" }) {
   const [busy, setBusy] = useState(false);
@@ -24,8 +25,8 @@ export function LanguageToggle({ language }: { language: "EN" | "AR" }) {
     }
   }
 
-  return <button type="button" className="preference-button" disabled={busy} onClick={() => void toggle()} aria-label={ar ? "Switch to English" : "التبديل إلى العربية"}>
-    <span aria-hidden="true">🌐</span>
+  return <button type="button" className="secondary pill" disabled={busy} onClick={() => void toggle()} aria-label={ar ? "Switch to English" : "التبديل إلى العربية"}>
+    <Icon name="globe" size={16} />
     <span>{busy ? "…" : ar ? "English" : "العربية"}</span>
   </button>;
 }

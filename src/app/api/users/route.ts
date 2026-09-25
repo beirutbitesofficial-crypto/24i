@@ -1,7 +1,9 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, hashPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkClients } from "@/lib/scope";
 
 const roleKeys = ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER","CLIENT"] as const;
 const createSchema = z.object({
@@ -13,7 +15,7 @@ const createSchema = z.object({
   clientBrandName: z.string().trim().max(160).optional(),
 });
 
-export async function GET() {
+async function handleGET() {
   const actor = await authorize("users.read");
   const users = await db.user.findMany({
     include: {
@@ -37,7 +39,7 @@ export async function GET() {
   })));
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
@@ -46,6 +48,9 @@ export async function POST(req: Request) {
   if (actor.role.key !== "ADMIN" && data.roleKey === "ADMIN") {
     return NextResponse.json({ error: "Only Admin can create another Admin" }, { status: 403 });
   }
+
+  const invalidClients = await checkClients(data.clientIds);
+  if (invalidClients) return NextResponse.json({ error: invalidClients }, { status: 400 });
 
   const role = await db.role.findUnique({ where: { key: data.roleKey } });
   if (!role) return NextResponse.json({ error: "Role not found" }, { status: 400 });
@@ -106,3 +111,6 @@ export async function POST(req: Request) {
     clients: user.clientUsers.map((x) => ({ id: x.client.id, brandName: x.client.brandName })),
   }, { status: 201 });
 }
+
+export const GET = api(handleGET);
+export const POST = api(handlePOST);

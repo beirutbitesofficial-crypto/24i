@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { CreatePanel, Notice } from "@/components/ui";
 
 type ClientOption = { id: string; brandName: string };
 type UserOption = { id: string; name: string };
@@ -29,12 +30,12 @@ export function ContentManager({ clients, owners, ar = false }: { clients: Clien
     finally { setBusy(false); }
   }
 
-  return <section className="panel"><div className="section-head"><div><span className="eyebrow">{ar ? "خطة المحتوى" : "CONTENT PLAN"}</span><h2>{ar ? "إضافة محتوى جديد" : "New content item"}</h2></div></div>{message && <div className="notice">{message}</div>}<form className="form-grid compact-form" onSubmit={submit}>
+  return <CreatePanel title={ar ? "إضافة محتوى جديد" : "New content item"} hint={ar ? "أضف منشورًا أو ريلز أو إعلانًا إلى الخطة" : "Add a post, reel or campaign asset to the plan"}><Notice message={message} /><form className="form-grid compact-form" onSubmit={submit}>
     <label>{ar ? "العنوان" : "Title"}<input name="title" required /></label>
     <label>{ar ? "العميل" : "Client"}<select name="clientId" required>{clients.map((c) => <option key={c.id} value={c.id}>{c.brandName}</option>)}</select></label>
     <label>{ar ? "النوع" : "Type"}<select name="type" defaultValue="REEL"><option value="REEL">Reel</option><option value="STATIC_POST">Post</option><option value="CAROUSEL">Carousel</option><option value="STORY">Story</option><option value="TIKTOK">TikTok</option><option value="YOUTUBE_SHORT">YouTube Short</option><option value="FACEBOOK_POST">Facebook Post</option><option value="LINKEDIN_POST">LinkedIn Post</option><option value="ADVERTISEMENT">Ad</option><option value="OTHER">{ar ? "غير ذلك" : "Other"}</option></select></label>
     <label>{ar ? "المسؤول" : "Owner"}<select name="ownerId" defaultValue=""><option value="">{ar ? "غير محدد" : "Unassigned"}</option>{owners.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
     <fieldset className="client-checks"><legend>{ar ? "المنصات" : "Platforms"}</legend>{["Instagram","Facebook","TikTok","YouTube","LinkedIn"].map((p) => <label className="check" key={p}><input type="checkbox" name="platform" value={p} defaultChecked={p === "Instagram"} />{p}</label>)}</fieldset>
     <button disabled={busy || !clients.length}>{busy ? (ar ? "جارٍ الإنشاء…" : "Creating…") : (ar ? "إنشاء المحتوى" : "Create content")}</button>
-  </form></section>;
+  </form></CreatePanel>;
 }

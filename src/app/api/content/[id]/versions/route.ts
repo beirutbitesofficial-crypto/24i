@@ -1,14 +1,17 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
+import { checkFiles } from "@/lib/scope";
+import { serializable } from "@/lib/tx";
 
 const schema = z.object({
   fileId: z.string().optional(),
   thumbnailId: z.string().optional(),
   notes: z.string().max(2000).optional(),
-  slides: z.array(z.object({ fileId: z.string(), position: z.number().int().min(0) })).optional(),
+  slides: z.array(z.object({ fileId: z.string(), position: z.number().int().min(0) })).max(20).optional(),
   caption: z.string().min(1).max(10000).optional(),
   hashtags: z.string().max(3000).optional(),
   cta: z.string().max(1000).optional(),
@@ -21,7 +24,7 @@ function assetLabel(type: string) {
   return "Visual";
 }
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -66,11 +69,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Slide positions must be unique" }, { status: 400 });
   }
 
-  const version = await db.$transaction(async (tx) => {
+  const invalidFiles = await checkFiles(
+    [parsed.data.fileId, parsed.data.thumbnailId, ...(parsed.data.slides ?? []).map((slide) => slide.fileId)],
+    content.clientId,
+  );
+  if (invalidFiles) return NextResponse.json({ error: invalidFiles }, { status: 400 });
+
+  const version = await serializable(async (tx) => {
+    // Version numbers are computed inside the transaction so concurrent uploads cannot collide.
+    const [latestVersion, latestCaption] = await Promise.all([
+      tx.contentVersion.findFirst({ where: { contentId: id }, orderBy: { version: "desc" }, select: { version: true } }),
+      tx.captionVersion.findFirst({ where: { contentId: id }, orderBy: { version: "desc" }, select: { version: true } }),
+    ]);
     const row = await tx.contentVersion.create({
       data: {
         contentId: id,
-        version: (content.versions[0]?.version || 0) + 1,
+        version: (latestVersion?.version ?? 0) + 1,
         fileId: parsed.data.fileId,
         thumbnailId: parsed.data.thumbnailId,
         notes: parsed.data.notes,
@@ -83,7 +97,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const caption = await tx.captionVersion.create({
         data: {
           contentId: id,
-          version: (content.captions[0]?.version || 0) + 1,
+          version: (latestCaption?.version ?? 0) + 1,
           caption: parsed.data.caption!.trim(),
           hashtags: parsed.data.hashtags,
           cta: parsed.data.cta,
@@ -189,3 +203,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   return NextResponse.json(version, { status: 201 });
 }
+
+export const POST = api(handlePOST);

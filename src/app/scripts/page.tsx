@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ScriptWorkflow } from "@/components/script-workflow";
@@ -7,7 +7,7 @@ import { ScriptWorkflow } from "@/components/script-workflow";
 const allowedRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "CLIENT"]);
 
 export default async function ScriptsPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "content.read") || !allowedRoles.has(user.role.key)) redirect("/");
 
   const ar = user.language === "AR";

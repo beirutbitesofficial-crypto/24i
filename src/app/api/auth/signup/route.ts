@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -15,7 +16,7 @@ const input = z.object({
   message: "Passwords do not match",
 });
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   try {
     const parsed = input.safeParse(await req.json());
     if (!parsed.success) {
@@ -94,3 +95,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not create account. Please try again." }, { status: 500 });
   }
 }
+
+export const POST = api(handlePOST);

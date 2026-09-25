@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireUser, hasPermission } from "@/lib/auth";
+import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ShootingReservationForm } from "@/components/shooting-reservation-form";
@@ -7,7 +7,7 @@ import { ShootingReservationForm } from "@/components/shooting-reservation-form"
 const allowedRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"]);
 
 export default async function ShootingPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!allowedRoles.has(user.role.key) || !hasPermission(user, "calendar.read")) redirect("/");
 
   const ar = user.language === "AR";

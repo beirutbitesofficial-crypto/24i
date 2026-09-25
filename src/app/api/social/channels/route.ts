@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
@@ -13,7 +14,7 @@ const schema = z.object({
   })).max(30),
 });
 
-export async function GET() {
+async function handleGET() {
   await authorize("clients.read");
   const rows = await db.socialChannel.findMany({
     where: { provider: "BUFFER" },
@@ -22,7 +23,7 @@ export async function GET() {
   return NextResponse.json(rows);
 }
 
-export async function PUT(req: Request) {
+async function handlePUT(req: Request) {
   const user = await authorize("clients.read");
   if (!["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"].includes(user.role.key)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -63,3 +64,6 @@ export async function PUT(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const GET = api(handleGET);
+export const PUT = api(handlePUT);

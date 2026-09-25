@@ -6,8 +6,19 @@ Production-oriented Next.js/PostgreSQL foundation for agency operations. It incl
 
 1. Install Node.js 22+, PostgreSQL 16+, and an S3-compatible object store.
 2. Copy `.env.example` to `.env` and replace every secret. Generate VAPID keys with `npx web-push generate-vapid-keys`.
-3. Run `npm ci`, `npx prisma migrate dev --name initial`, then set `ADMIN_EMAIL` and `ADMIN_PASSWORD` and run `npm run db:seed`.
-4. Run `npm test` and `npm run dev`.
+3. Run `npm ci`, then `npm run db:migrate` to create the tables and `npm run db:seed` to load roles, permissions and the first admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
+4. Run `npm run lint`, `npm test` and `npm run dev`.
+
+`SESSION_SECRET` must be at least 32 characters. On `npm start`, the admin account is created once if it doesn't exist; its password is never overwritten on restart. To recover a lost admin password, start once with `ADMIN_RESET_PASSWORD=true`, then remove it.
+
+Upgrading a database that was created earlier with `prisma db push` (i.e. it already has all tables): mark the existing migrations as applied once, then use `npm run db:migrate` from then on:
+
+```
+npx prisma migrate resolve --applied 0_init
+npx prisma migrate resolve --applied 1_auto_publishing   # only if the SocialChannel / PublishingAttempt tables already exist
+```
+
+Schema changes: edit `prisma/schema.prisma`, run `npx prisma migrate dev --name <change>` and commit the new folder under `prisma/migrations/`.
 
 Production uses `npm run db:migrate`, then `npm run build && npm start`. Terminate TLS at a trusted proxy, enforce HTTPS, set secure secrets through the platform secret manager, and schedule authenticated cron endpoints in the `Asia/Beirut` timezone. Object upload endpoints should issue short-lived, content-type/size constrained presigned URLs; downloads must authorize the file's client scope before issuing a short-lived URL.
 
@@ -30,5 +41,4 @@ Production uses `npm run db:migrate`, then `npm run build && npm start`. Termina
 
 ## Scope status
 
-This repository is a working foundation, not a truthful claim that all 71 sections of the supplied specification are complete. The current execution host lacked Node/npm and its TLS layer blocked downloading them, so migrations, build and tests could not be run here. Remaining production modules include password-reset email delivery, S3 upload/signing, notification fan-out, reports, calendars, full bilingual UI, finance screens, scheduled worker routes and the complete acceptance suite.
-
+This repository is a working foundation, not a claim that every section of the original specification is complete. Implemented: authentication, role-based access with client scoping, clients, projects, tasks, content workflow with separate visual/caption approvals, file library (S3), calendar, notifications and web push, finance (packages, invoices, payments, expenses, salaries), reports, audit log, settings and an EN/AR (RTL) interface shell. Still to do: password-reset email, scheduled worker routes (recurring tasks, overdue alerts, reminders), full Arabic translation of page content, payment/expense reversal screens, and the automated acceptance suite.

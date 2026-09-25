@@ -1,9 +1,10 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { authorize, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { signPreview } from "@/lib/storage";
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const file = await db.fileObject.findFirst({
     where: { id, deletedAt: null, contentId: { not: null } },
@@ -18,3 +19,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   return NextResponse.redirect(await signPreview(file.key, file.mimeType));
 }
+
+export const GET = api(handleGET);

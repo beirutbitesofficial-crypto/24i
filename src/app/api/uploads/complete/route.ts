@@ -1,22 +1,26 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
+import { checkContent, checkProject, checkTask, firstError } from "@/lib/scope";
+import { isAllowedType, statUpload } from "@/lib/storage";
 
 const schema = z.object({
   clientId: z.string(),
   projectId: z.string().optional(),
   taskId: z.string().optional(),
   contentId: z.string().optional(),
-  key: z.string().startsWith("clients/"),
-  originalName: z.string().min(1),
-  mimeType: z.string(),
-  size: z.string().regex(/^\d+$/),
-  checksum: z.string().optional(),
+  key: z.string().startsWith("clients/").max(300),
+  originalName: z.string().trim().min(1).max(255),
+  // Browser-reported values are only a fallback; storage is the source of truth.
+  mimeType: z.string().max(100).optional(),
+  size: z.string().regex(/^\d+$/).optional(),
+  checksum: z.string().max(200).optional(),
 });
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
@@ -31,10 +35,35 @@ export async function POST(req: Request) {
   });
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
+  const invalid = await firstError(
+    checkProject(parsed.data.projectId, parsed.data.clientId),
+    checkTask(parsed.data.taskId, parsed.data.clientId),
+    checkContent(parsed.data.contentId, parsed.data.clientId),
+  );
+  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
+  if (await db.fileObject.findUnique({ where: { key: parsed.data.key } })) {
+    return NextResponse.json({ error: "File already registered" }, { status: 409 });
+  }
+
+  const stored = await statUpload(parsed.data.key);
+  if (!stored || stored.size < 1) return NextResponse.json({ error: "Upload not found in storage" }, { status: 400 });
+  // Some browsers (notably Safari) store uploads as a generic type; only then fall back to
+  // the type the browser declared, and only if that type is on the allow-list.
+  const generic = !stored.mimeType || stored.mimeType === "application/octet-stream";
+  const mimeType = isAllowedType(stored.mimeType) ? stored.mimeType : generic && parsed.data.mimeType && isAllowedType(parsed.data.mimeType) ? parsed.data.mimeType : null;
+  if (!mimeType) return NextResponse.json({ error: "This file type is not supported" }, { status: 400 });
+
   const file = await db.fileObject.create({
     data: {
-      ...parsed.data,
-      size: BigInt(parsed.data.size),
+      clientId: parsed.data.clientId,
+      projectId: parsed.data.projectId,
+      taskId: parsed.data.taskId,
+      contentId: parsed.data.contentId,
+      key: parsed.data.key,
+      originalName: parsed.data.originalName,
+      checksum: parsed.data.checksum,
+      mimeType,
+      size: BigInt(stored.size),
       uploadedById: user.id,
     },
   });
@@ -82,3 +111,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ...file, size: file.size.toString() }, { status: 201 });
 }
+
+export const POST = api(handlePOST);

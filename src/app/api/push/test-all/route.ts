@@ -1,9 +1,10 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 
-export async function POST() {
+async function handlePOST() {
   const user = await requireUser();
   if (user.role.key !== "ADMIN") {
     return NextResponse.json({ error: "Only Admin can send a global test notification" }, { status: 403 });
@@ -43,3 +44,5 @@ export async function POST() {
 
   return NextResponse.json({ ok: true, activeUsers: userIds.length, subscriptions });
 }
+
+export const POST = api(handlePOST);
