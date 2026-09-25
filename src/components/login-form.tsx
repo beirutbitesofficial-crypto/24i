@@ -43,7 +43,7 @@ export function LoginForm() {
     >
       <label>
         Email
-        <input name="email" type="email" autoComplete="email" required />
+        <input name="email" type="email" autoComplete="email" placeholder="you@agency.com" required autoFocus />
       </label>
       <label>
         Password

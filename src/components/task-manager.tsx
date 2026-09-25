@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { CreatePanel, Notice } from "@/components/ui";
 
 type ClientOption = { id: string; brandName: string };
 type UserOption = { id: string; name: string; role: string };
@@ -13,12 +14,14 @@ export function TaskManager({ clients, users }: { clients: ClientOption[]; users
     e.preventDefault(); setBusy(true); setMessage("");
     const form = new FormData(e.currentTarget);
     const due = form.get("dueAt");
+    const start = form.get("startAt");
     const body = {
       clientId: form.get("clientId") || undefined,
       title: form.get("title"),
       description: form.get("description") || undefined,
       category: form.get("category"),
       priority: form.get("priority"),
+      startAt: start ? new Date(String(start)).toISOString() : undefined,
       dueAt: due ? new Date(String(due)).toISOString() : undefined,
       assigneeIds: form.getAll("assigneeIds"),
     };
@@ -32,14 +35,15 @@ export function TaskManager({ clients, users }: { clients: ClientOption[]; users
     finally { setBusy(false); }
   }
 
-  return <section className="panel"><div className="section-head"><div><span className="eyebrow">ASSIGN</span><h2>New task</h2></div></div>{message && <div className="notice">{message}</div>}<form className="form-grid compact-form" onSubmit={submit}>
+  return <CreatePanel title="New task" hint="Assign work to the team — assignees are notified"><Notice message={message} /><form className="form-grid compact-form" onSubmit={submit}>
     <label>Task title<input name="title" required /></label>
     <label>Category<input name="category" placeholder="Editing, Design, Shooting…" required /></label>
     <label>Client<select name="clientId" defaultValue=""><option value="">Internal / no client</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.brandName}</option>)}</select></label>
-    <label>Priority<select name="priority" defaultValue="MEDIUM"><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>URGENT</option></select></label>
+    <label>Priority<select name="priority" defaultValue="MEDIUM"><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></label>
     <label>Due date & time<input name="dueAt" type="datetime-local" /></label>
-    <label>Description<textarea name="description" rows={3} /></label>
+    <label>Start date & time<input name="startAt" type="datetime-local" /></label>
+    <label className="full-field">Description<textarea name="description" rows={3} /></label>
     <fieldset className="client-checks"><legend>Assignees</legend>{users.map((u) => <label className="check" key={u.id}><input type="checkbox" name="assigneeIds" value={u.id} />{u.name} · {u.role}</label>)}</fieldset>
     <button disabled={busy}>{busy ? "Creating…" : "Create task"}</button>
-  </form></section>;
+  </form></CreatePanel>;
 }

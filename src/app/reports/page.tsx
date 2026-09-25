@@ -3,33 +3,59 @@ import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { money } from "@/lib/money";
 import { AppShell } from "@/components/app-shell";
+import { Card, Empty, Icon, humanize, usd } from "@/components/ui";
+
+function Bars({ rows }: { rows: { label: string; value: number }[] }) {
+  if (!rows.length) return <Empty title="No data yet" />;
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  return <div className="bars">{rows.map((r) => <div className="bar" key={r.label}>
+    <span>{r.label}</span>
+    <span className="bar-track"><span className="bar-fill" style={{ display: "block", width: `${(r.value / max) * 100}%` }} /></span>
+    <b>{r.value}</b>
+  </div>)}</div>;
+}
 
 export default async function ReportsPage() {
   const user = await requirePageUser();
   if (!hasPermission(user, "finance.reports.read")) redirect("/");
   const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const [clients, invoices, expenses, salaries, tasks, content] = await Promise.all([
+  const [clients, invoices, payments, expenses, salaries, tasks, content] = await Promise.all([
     db.client.count({ where: { status: "ACTIVE" } }),
-    db.invoice.findMany({ where: { issuedAt: { gte: start }, voidedAt: null }, include: { payments: { where: { reversedAt: null } } } }),
+    db.invoice.aggregate({ where: { issuedAt: { gte: start }, voidedAt: null }, _sum: { total: true } }),
+    // Cash actually received this month, whichever month the invoice was issued in.
+    db.payment.aggregate({ where: { paidAt: { gte: start }, reversedAt: null, invoice: { voidedAt: null } }, _sum: { amount: true } }),
     db.expense.findMany({ where: { date: { gte: start }, reversedAt: null }, include: { category: true } }),
-    db.salaryPayment.findMany({ where: { paymentDate: { gte: start }, reversedAt: null } }),
+    db.salaryPayment.aggregate({ where: { paymentDate: { gte: start }, reversedAt: null }, _sum: { finalAmount: true } }),
     db.task.groupBy({ by: ["status"], _count: { _all: true } }),
     db.contentItem.groupBy({ by: ["status"], _count: { _all: true } }),
   ]);
 
-  const invoiced = invoices.reduce((s, x) => s.plus(x.total), money(0));
-  const collected = invoices.reduce((s, x) => s.plus(x.payments.reduce((p, y) => p.plus(y.amount), money(0))), money(0));
+  const invoiced = invoices._sum.total ?? money(0);
+  const collected = payments._sum.amount ?? money(0);
+  const salaryTotal = salaries._sum.finalAmount ?? money(0);
   const expenseTotal = expenses.reduce((s, x) => s.plus(x.amount), money(0));
-  const salaryTotal = salaries.reduce((s, x) => s.plus(x.finalAmount), money(0));
-  const expenseByCategory = new Map<string, ReturnType<typeof money>>();
-  for (const expense of expenses) expenseByCategory.set(expense.category.name, (expenseByCategory.get(expense.category.name) || money(0)).plus(expense.amount));
+  const byCategory = new Map<string, ReturnType<typeof money>>();
+  for (const e of expenses) byCategory.set(e.category.name, (byCategory.get(e.category.name) || money(0)).plus(e.amount));
+  const month = start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  return <AppShell user={user} title="Reports" kicker="THIS MONTH">
+  return <AppShell user={user} title="Reports" kicker={month}>
+    <div className="metrics">
+      <article><span><Icon name="briefcase" size={16} />Active clients</span><b>{clients}</b></article>
+      <article><span><Icon name="file" size={16} />Invoiced</span><b>{usd(invoiced)}</b></article>
+      <article><span><Icon name="wallet" size={16} />Collected</span><b>{usd(collected)}</b></article>
+      <article><span><Icon name="chart" size={16} />Net cash</span><b>{usd(collected.minus(expenseTotal).minus(salaryTotal))}</b><small>After {usd(expenseTotal)} expenses and {usd(salaryTotal)} salaries</small></article>
+    </div>
+    <div className="grid-2">
+      <Card eyebrow="Workload" title="Tasks by status"><Bars rows={tasks.map((x) => ({ label: humanize(x.status), value: x._count._all }))} /></Card>
+      <Card eyebrow="Content" title="Production pipeline"><Bars rows={content.map((x) => ({ label: humanize(x.status), value: x._count._all }))} /></Card>
+    </div>
     <div className="management-stack">
-      <div className="metrics"><article><span>Active clients</span><b>{clients}</b></article><article><span>Invoiced / collected</span><b className="metric-text">${invoiced.toFixed(2)} / ${collected.toFixed(2)}</b></article><article><span>Net cash</span><b className="metric-text">${collected.minus(expenseTotal).minus(salaryTotal).toFixed(2)}</b></article></div>
-      <section className="panel tablewrap"><span className="eyebrow">WORKLOAD</span><h2>Task status</h2><table><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>{tasks.map(x=><tr key={x.status}><td>{x.status.replaceAll("_"," ")}</td><td>{x._count._all}</td></tr>)}</tbody></table></section>
-      <section className="panel tablewrap"><span className="eyebrow">CONTENT</span><h2>Production status</h2><table><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>{content.map(x=><tr key={x.status}><td>{x.status.replaceAll("_"," ")}</td><td>{x._count._all}</td></tr>)}</tbody></table></section>
-      <section className="panel tablewrap"><span className="eyebrow">EXPENSE BREAKDOWN</span><h2>By category</h2><table><thead><tr><th>Category</th><th>Amount</th></tr></thead><tbody>{[...expenseByCategory.entries()].map(([name,total])=><tr key={name}><td>{name}</td><td>${total.toFixed(2)}</td></tr>)}</tbody></table>{!expenseByCategory.size&&<p>No expenses this month.</p>}</section>
+      <section className="panel tablewrap">
+        <div className="section-head"><div><span className="eyebrow">Expense breakdown</span><h2>By category</h2></div></div>
+        {byCategory.size
+          ? <table><thead><tr><th>Category</th><th className="num">Amount</th><th className="num">Share</th></tr></thead><tbody>{[...byCategory.entries()].sort((a, b) => b[1].comparedTo(a[1])).map(([name, total]) => <tr key={name}><td>{name}</td><td className="num">{usd(total)}</td><td className="num">{expenseTotal.gt(0) ? `${total.div(expenseTotal).times(100).toFixed(0)}%` : "—"}</td></tr>)}</tbody></table>
+          : <Empty title="No expenses this month" />}
+      </section>
     </div>
   </AppShell>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { Notice } from "@/components/ui";
 
 type Settings = { companyName: string; currency: "USD"; timezone: string; defaultLanguage: "EN" | "AR" };
 
@@ -24,5 +25,5 @@ export function SettingsForm({ initial }: { initial: Settings }) {
     finally { setBusy(false); }
   }
 
-  return <section className="panel"><div className="section-head"><div><span className="eyebrow">AGENCY</span><h2>General settings</h2></div><span className="muted">Sensitive secrets stay in Hostinger environment variables</span></div>{message&&<div className="notice">{message}</div>}<form className="form-grid compact-form" onSubmit={submit}><label>Company name<input name="companyName" defaultValue={initial.companyName} required/></label><label>Currency<input value="USD" disabled readOnly/></label><label>Timezone<input name="timezone" defaultValue={initial.timezone} required/></label><label>Default language<select name="defaultLanguage" defaultValue={initial.defaultLanguage}><option value="EN">English</option><option value="AR">Arabic</option></select></label><button disabled={busy}>{busy?"Saving…":"Save settings"}</button></form></section>;
+  return <section className="panel"><div className="section-head"><div><span className="eyebrow">Agency</span><h2>General settings</h2></div><span className="hint">API keys and secrets stay in your hosting environment variables.</span></div><Notice message={message} /><form className="form-grid compact-form" onSubmit={submit}><label>Company name<input name="companyName" defaultValue={initial.companyName} required/></label><label>Currency<input value="USD" disabled readOnly/></label><label>Timezone<input name="timezone" defaultValue={initial.timezone} required/></label><label>Default language<select name="defaultLanguage" defaultValue={initial.defaultLanguage}><option value="EN">English</option><option value="AR">Arabic</option></select></label><button disabled={busy}>{busy?"Saving…":"Save settings"}</button></form></section>;
 }

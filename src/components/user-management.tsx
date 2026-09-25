@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { Notice } from "@/components/ui";
 
 type ClientOption = { id: string; brandName: string };
 type RoleOption = { key: string; name: string; permissions: string[] };
@@ -116,7 +117,7 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole 
   }
 
   return <div className="management-stack">
-    {message && <div className="notice">{message}</div>}
+    <Notice message={message} />
 
     <section className="panel">
       <div className="section-head"><div><span className="eyebrow">NEW ACCOUNT</span><h2>Create user</h2></div><span className="muted">Private account · role-based access</span></div>

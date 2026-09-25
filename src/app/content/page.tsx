@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
+import { Badge, Empty, humanize } from "@/components/ui";
 import { ContentManager } from "@/components/content-manager";
 import { redirect } from "next/navigation";
 
@@ -19,7 +20,7 @@ export default async function Content() {
   return <AppShell user={user} title="Content" kicker="PRODUCTION">
     <div className="management-stack">
       {canWrite && <ContentManager clients={clients} owners={owners} />}
-      <div className="panel tablewrap"><table><thead><tr><th>Content</th><th>Client</th><th>Type</th><th>Version</th><th>Visual</th><th>Caption</th><th>Publishing</th></tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><Link href={`/content/${x.id}`}><b>{x.title}</b></Link><small>{x.platform.join(" · ")}</small></td><td>{x.client.brandName}</td><td>{x.type.replaceAll("_", " ")}</td><td>V{x.versions[0]?.version || 0}</td><td>{x.visualStatus}</td><td>{x.captionStatus}</td><td>{x.status}</td></tr>)}</tbody></table>{!rows.length && <p>No content yet.</p>}</div>
+      <div className="panel tablewrap">{rows.length ? <table><thead><tr><th>Content</th><th>Client</th><th>Type</th><th>Version</th><th>Visual</th><th>Caption</th><th>Workflow</th></tr></thead><tbody>{rows.map((x) => <tr key={x.id}><td><Link href={`/content/${x.id}`}><b>{x.title}</b></Link><small>{x.platform.join(" · ")}</small></td><td>{x.client.brandName}</td><td>{humanize(x.type)}</td><td>{x.versions[0] ? `V${x.versions[0].version}` : "—"}</td><td><Badge value={x.visualStatus} /></td><td><Badge value={x.captionStatus} /></td><td><Badge value={x.status} /></td></tr>)}</tbody></table> : <Empty title="No content yet" hint={canWrite ? "Add the first content item above." : undefined} />}</div>
     </div>
   </AppShell>;
 }
