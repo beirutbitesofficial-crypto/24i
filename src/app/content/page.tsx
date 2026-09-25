@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ContentManager } from "@/components/content-manager";
 import { redirect } from "next/navigation";
 
 export default async function Content() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "content.read")) redirect("/");
   const ids = assignedClientIds(user);
   const canWrite = hasPermission(user, "content.write");

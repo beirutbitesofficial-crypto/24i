@@ -1,11 +1,11 @@
 import { notFound, redirect } from "next/navigation";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ContentWorkflow } from "@/components/content-workflow";
 
 export default async function ContentDetail({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "content.read")) redirect("/");
   const { id } = await params;
   const content = await db.contentItem.findUnique({

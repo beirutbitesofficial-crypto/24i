@@ -1,4 +1,4 @@
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { money } from "@/lib/money";
 import { AppShell } from "@/components/app-shell";
@@ -6,7 +6,7 @@ import { FinanceManager } from "@/components/finance-manager";
 import { redirect } from "next/navigation";
 
 export default async function Finance() {
-  const user = await requireUser();
+  const user = await requirePageUser();
 
   if (user.role.key === "CLIENT") {
     if (!hasPermission(user, "finance.client.read")) redirect("/");

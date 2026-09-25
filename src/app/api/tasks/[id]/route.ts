@@ -1,6 +1,7 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authorize } from "@/lib/auth";
+import { authorizeRecord } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const schema = z.object({
@@ -8,14 +9,14 @@ const schema = z.object({
   note: z.string().max(2000).optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const task = await db.task.findUnique({ where: { id }, include: { assignees: true } });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const user = await authorize("tasks.update", task.clientId || undefined);
+  const user = await authorizeRecord("tasks.update", task.clientId);
   if (user.role.key === "EDITOR" && !task.assignees.some((a) => a.userId === user.id)) {
     return NextResponse.json({ error: "Editors can update only assigned tasks" }, { status: 403 });
   }
@@ -39,3 +40,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   });
   return NextResponse.json(row);
 }
+
+export const PATCH = api(handlePATCH);

@@ -1,9 +1,20 @@
 import argon2 from "argon2";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { db } from "./db";
 
-const key = () => new TextEncoder().encode(process.env.SESSION_SECRET);
+export class AuthError extends Error {
+  constructor(public status: 401 | 403) {
+    super(status === 401 ? "UNAUTHORIZED" : "FORBIDDEN");
+  }
+}
+
+const key = () => {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) throw new Error("SESSION_SECRET must be at least 32 characters");
+  return new TextEncoder().encode(secret);
+};
 const scopedRoles = new Set(["CLIENT", "EDITOR", "SOCIAL_MEDIA_MANAGER"]);
 
 export const hashPassword = (password: string) =>
@@ -45,8 +56,26 @@ export async function currentUser() {
 
 export async function requireUser() {
   const user = await currentUser();
-  if (!user) throw new Error("UNAUTHORIZED");
+  if (!user) throw new AuthError(401);
   return user;
+}
+
+// For server components: send signed-out visitors to the login screen.
+export async function requirePageUser() {
+  const user = await currentUser();
+  if (!user) redirect("/");
+  return user;
+}
+
+export type SessionUser = Awaited<ReturnType<typeof requireUser>>;
+
+export function isScoped(user: SessionUser) {
+  return scopedRoles.has(user.role.key);
+}
+
+export function canAccessClient(user: SessionUser, clientId: string | null | undefined) {
+  if (!isScoped(user)) return true;
+  return Boolean(clientId && user.clientUsers.some((c) => c.clientId === clientId));
 }
 
 export function hasPermission(
@@ -69,15 +98,14 @@ export function assignedClientIds(
 
 export async function authorize(permission: string, clientId?: string) {
   const user = await requireUser();
-  if (!hasPermission(user, permission)) throw new Error("FORBIDDEN");
+  if (!hasPermission(user, permission)) throw new AuthError(403);
+  if (clientId && !canAccessClient(user, clientId)) throw new AuthError(403);
+  return user;
+}
 
-  if (
-    clientId &&
-    scopedRoles.has(user.role.key) &&
-    !user.clientUsers.some((c) => c.clientId === clientId)
-  ) {
-    throw new Error("FORBIDDEN");
-  }
-
+// Like authorize, but for an existing record: scoped roles may not touch records without a client.
+export async function authorizeRecord(permission: string, clientId: string | null) {
+  const user = await authorize(permission);
+  if (!canAccessClient(user, clientId)) throw new AuthError(403);
   return user;
 }

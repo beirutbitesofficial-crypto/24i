@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, assignedClientIds } from "@/lib/auth";
@@ -21,14 +22,14 @@ const schema = z.object({
   notes: z.string().max(5000).optional(),
 });
 
-export async function GET() {
+async function handleGET() {
   const user = await authorize("clients.read");
   const ids = assignedClientIds(user);
   const rows = await db.client.findMany({ where: ids ? { id: { in: ids } } : {}, orderBy: { brandName: "asc" } });
   return NextResponse.json(rows);
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const user = await authorize("clients.write");
@@ -54,3 +55,6 @@ export async function POST(req: Request) {
   });
   return NextResponse.json(row, { status: 201 });
 }
+
+export const GET = api(handleGET);
+export const POST = api(handlePOST);

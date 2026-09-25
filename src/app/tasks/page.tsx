@@ -1,4 +1,4 @@
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { TaskManager } from "@/components/task-manager";
@@ -6,7 +6,7 @@ import { TaskStatus } from "@/components/task-status";
 import { redirect } from "next/navigation";
 
 export default async function Tasks() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "tasks.read")) redirect("/");
   const ids = assignedClientIds(user);
   const where = user.role.key === "EDITOR"

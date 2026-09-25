@@ -1,7 +1,9 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, hashPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkClients } from "@/lib/scope";
 
 const roleKeys = ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER","CLIENT"] as const;
 const patchSchema = z.object({
@@ -12,7 +14,7 @@ const patchSchema = z.object({
   clientIds: z.array(z.string()).optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const parsed = patchSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -27,6 +29,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (actor.id === target.id && parsed.data.status === "DISABLED") {
     return NextResponse.json({ error: "You cannot disable your own account" }, { status: 409 });
   }
+
+  const invalidClients = await checkClients(parsed.data.clientIds ?? []);
+  if (invalidClients) return NextResponse.json({ error: invalidClients }, { status: 400 });
 
   let roleId: string | undefined;
   if (parsed.data.roleKey) {
@@ -84,7 +89,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   return NextResponse.json({ ok: true, id: updated.id });
 }
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleDELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const actor = await authorize("users.write");
   const target = await db.user.findUnique({ where: { id }, include: { role: true } });
@@ -100,3 +105,6 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   ]);
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = api(handlePATCH);
+export const DELETE = api(handleDELETE);

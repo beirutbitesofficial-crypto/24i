@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { requireUser, hasPermission } from "@/lib/auth";
+import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { money } from "@/lib/money";
 import { AppShell } from "@/components/app-shell";
 
 export default async function ReportsPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "finance.reports.read")) redirect("/");
   const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const [clients, invoices, expenses, salaries, tasks, content] = await Promise.all([

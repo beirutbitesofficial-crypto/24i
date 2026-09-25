@@ -1,3 +1,4 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
@@ -5,7 +6,7 @@ import { db } from "@/lib/db";
 import { money } from "@/lib/money";
 
 const schema = z.object({ employeeId: z.string(), baseSalary: z.string().regex(/^\d+(\.\d{1,2})?$/) });
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const user = await authorize("finance.salaries.write");
@@ -15,3 +16,5 @@ export async function POST(req: Request) {
   await db.auditLog.create({ data: { userId: user.id, action: "SALARY_PROFILE_SAVED", entityType: "SalaryProfile", entityId: row.id, newValue: { employeeId: employee.id, baseSalary: row.baseSalary.toString() } } });
   return NextResponse.json({ ...row, baseSalary: row.baseSalary.toString() }, { status: 201 });
 }
+
+export const POST = api(handlePOST);

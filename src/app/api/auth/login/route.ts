@@ -1,14 +1,18 @@
+import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, hashPassword, verifyPassword } from "@/lib/auth";
+
+let dummy: Promise<string> | undefined;
+const dummyHash = () => (dummy ??= hashPassword("timing-equaliser-password"));
 
 const input = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
 });
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   try {
     const parsed = input.safeParse(await req.json());
     if (!parsed.success) {
@@ -18,46 +22,10 @@ export async function POST(req: Request) {
     const email = parsed.data.email.trim().toLowerCase();
     const password = parsed.data.password;
 
-    let user = await db.user.findUnique({ where: { email } });
-    let valid = Boolean(
-      user &&
-        user.status === "ACTIVE" &&
-        (await verifyPassword(user.passwordHash, password))
-    );
-
-    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const matchesEnvironmentAdmin =
-      Boolean(adminEmail && adminPassword) &&
-      email === adminEmail &&
-      password === adminPassword;
-
-    if (!valid && matchesEnvironmentAdmin) {
-      const adminRole = await db.role.upsert({
-        where: { key: "ADMIN" },
-        update: { name: "Admin" },
-        create: { key: "ADMIN", name: "Admin" },
-      });
-
-      const passwordHash = await hashPassword(adminPassword!);
-      user = await db.user.upsert({
-        where: { email: adminEmail! },
-        update: {
-          name: "24i Admin",
-          passwordHash,
-          roleId: adminRole.id,
-          status: "ACTIVE",
-        },
-        create: {
-          name: "24i Admin",
-          email: adminEmail!,
-          passwordHash,
-          roleId: adminRole.id,
-          status: "ACTIVE",
-        },
-      });
-      valid = true;
-    }
+    const user = await db.user.findUnique({ where: { email } });
+    // Always run a hash check so response time does not reveal whether the email exists.
+    const passwordOk = await verifyPassword(user?.passwordHash ?? (await dummyHash()), password);
+    const valid = Boolean(user && user.status === "ACTIVE" && passwordOk);
 
     if (!user || !valid) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
@@ -77,3 +45,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = api(handlePOST);

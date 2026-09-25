@@ -1,10 +1,10 @@
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { redirect } from "next/navigation";
 
 export default async function Calendar() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "calendar.read")) redirect("/");
   const ids = assignedClientIds(user);
   const rows = await db.calendarEntry.findMany({

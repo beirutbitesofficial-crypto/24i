@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { requireUser, hasPermission, assignedClientIds } from "@/lib/auth";
+import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ProjectManager } from "@/components/project-manager";
 
 export default async function ProjectsPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   if (!hasPermission(user, "projects.read")) redirect("/");
   const ids = assignedClientIds(user);
   const canWrite = hasPermission(user, "projects.write");
