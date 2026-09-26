@@ -16,6 +16,13 @@ function instagramMetadata(type: string) {
   return { instagram: { type: value, shouldShareToFeed: value !== "story" } };
 }
 
+const MIN_SCHEDULE_LEAD_MS = 2 * 60 * 1000;
+
+export function scheduledPublishTime(calendar: { scheduledAt: Date; publishingStatus: string } | null | undefined) {
+  if (!calendar || calendar.publishingStatus !== "SCHEDULED") return undefined;
+  return calendar.scheduledAt.getTime() > Date.now() + MIN_SCHEDULE_LEAD_MS ? calendar.scheduledAt : undefined;
+}
+
 export async function publishApprovedContent(contentId: string, baseUrl: string) {
   if (!bufferConfigured()) return { skipped: "BUFFER_API_KEY_MISSING" as const };
 
@@ -25,6 +32,7 @@ export async function publishApprovedContent(contentId: string, baseUrl: string)
       client: { include: { socialChannels: { where: { active: true, autoPublish: true, provider: "BUFFER" } } } },
       versions: { include: { slides: { orderBy: { position: "asc" } } }, orderBy: { version: "desc" }, take: 1 },
       captions: { orderBy: { version: "desc" }, take: 1 },
+      calendar: true,
     },
   });
 
@@ -68,6 +76,9 @@ export async function publishApprovedContent(contentId: string, baseUrl: string)
   }));
 
   const text = postText(caption);
+  // A publish time set with "Schedule" (calendar status SCHEDULED) in the future makes Buffer
+  // publish at that time; otherwise (none, a plan-only date, or already past) publish now.
+  const dueAt = scheduledPublishTime(content.calendar);
 
   const results = await Promise.all(channels.map(async (channel) => {
     const existing = await db.publishingAttempt.findUnique({
@@ -100,6 +111,7 @@ export async function publishApprovedContent(contentId: string, baseUrl: string)
         text,
         assets,
         metadata: normalizedPlatform(channel.service) === "instagram" ? instagramMetadata(content.type) : undefined,
+        dueAt,
       });
       const sent = post.status === "sent" || Boolean(post.sentAt);
       const failed = post.status === "error";

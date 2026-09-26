@@ -13,6 +13,9 @@ const statusAr: Record<string, string> = {
   CLIENT_REVIEW: "مراجعة العميل", CAPTION_APPROVED: "الكابشن موافق عليه", READY_TO_SCHEDULE: "جاهز للجدولة", SCHEDULED: "مجدول", PUBLISHED: "منشور",
 };
 
+const beirutTime = (date: Date, ar: boolean) =>
+  date.toLocaleString(ar ? "ar" : "en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Beirut" });
+
 export default async function ContentDetail({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePageUser();
   if (!hasPermission(user, "content.read")) redirect("/");
@@ -75,6 +78,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
     canWrite={hasPermission(user, "content.write")} canUpload={canUpload} canApprove={hasPermission(user, "content.approve")} canSchedule={hasPermission(user, "content.schedule")}
     isCarousel={isCarousel} isClient={isClient} isSocialMediaManager={user.role.key === "SOCIAL_MEDIA_MANAGER"} storageReady={storageReady} visualStatus={content.visualStatus} contentStatus={content.status}
     captionText={latestCaption?.caption || null} captionHashtags={latestCaption?.hashtags || null} captionCta={latestCaption?.cta || null} ar={ar}
+    scheduledAt={content.calendar?.publishingStatus === "SCHEDULED" ? content.calendar.scheduledAt.toISOString() : null}
   />;
 
   return <AppShell user={user} title={content.title} kicker={`${content.client.brandName} · ${humanize(content.type)}`}>
@@ -116,8 +120,9 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
       {!isClient && <>
         <section className="panel">
           <div className="section-head"><div><span className="eyebrow">{ar ? "التفاصيل" : "DETAILS"}</span><h2>{humanize(content.type)}</h2></div><span className="muted">{content.platform.join(" · ")}</span></div>
-          <p>{ar ? "الموعد المخطط: " : "Planned: "}<b>{content.plannedAt?.toLocaleString() || (ar ? "غير مجدول" : "Not scheduled")}</b></p>
-          {content.calendar && <p>{ar ? "التقويم: " : "Calendar: "}<b>{content.calendar.scheduledAt.toLocaleString()}</b></p>}
+          {content.calendar?.publishingStatus === "SCHEDULED"
+            ? <p>{ar ? "موعد النشر: " : "Publishes at: "}<b>{beirutTime(content.calendar.scheduledAt, ar)}</b></p>
+            : <p>{ar ? "موعد النشر: " : "Publishes at: "}<b>{ar ? "فور موافقة العميل" : "Right after client approval"}</b>{content.plannedAt && <small className="muted"> · {ar ? "مخطط لـ " : "planned for "}{content.plannedAt.toLocaleDateString(ar ? "ar" : "en-US", { dateStyle: "medium", timeZone: "Asia/Beirut" })}</small>}</p>}
         </section>
 
         {content.publishingAttempts.length > 0 && <section className="panel">

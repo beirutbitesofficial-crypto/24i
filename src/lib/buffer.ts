@@ -94,6 +94,8 @@ export async function createBufferPost(input: {
   text: string;
   assets: Array<{ image?: { url: string }; video?: { url: string; metadata?: { thumbnailOffset?: number } } }>;
   metadata?: Record<string, unknown>;
+  // When set, Buffer publishes at this time instead of immediately.
+  dueAt?: Date;
 }) {
   const data = await gql<{ createPost: { post?: BufferPost; message?: string } }>(`
     mutation CreatePost($input: CreatePostInput!) {
@@ -117,7 +119,8 @@ export async function createBufferPost(input: {
       text: input.text,
       channelId: input.channelId,
       schedulingType: "automatic",
-      mode: "shareNow",
+      mode: input.dueAt ? "customScheduled" : "shareNow",
+      ...(input.dueAt ? { dueAt: input.dueAt.toISOString() } : {}),
       assets: input.assets,
       metadata: input.metadata,
       source: "24i-production",

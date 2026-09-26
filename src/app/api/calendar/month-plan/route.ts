@@ -46,7 +46,8 @@ async function handlePOST(req: Request) {
         data: {
           contentId: content.id,
           scheduledAt,
-          publishingStatus: "SCHEDULED",
+          // A plan date only; it becomes a publish time when someone sets it with "Schedule".
+          publishingStatus: "CONTENT_PLAN",
         },
       });
       created.push({ contentId: content.id, calendarId: calendar.id });

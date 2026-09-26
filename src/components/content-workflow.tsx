@@ -23,6 +23,7 @@ type Props = {
   captionHashtags?: string | null;
   captionCta?: string | null;
   ar?: boolean;
+  scheduledAt?: string | null;
 };
 
 async function request(url: string, body: unknown) {
@@ -66,6 +67,13 @@ function putFileWithProgress(
   });
 }
 
+// datetime-local inputs work in the viewer's local time.
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+const minLocal = () => toLocalInput(new Date(Date.now() + 5 * 60_000).toISOString());
+
 export function ContentWorkflow({
   contentId,
   clientId,
@@ -85,6 +93,7 @@ export function ContentWorkflow({
   captionHashtags,
   captionCta,
   ar = false,
+  scheduledAt = null,
 }: Props) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -438,11 +447,14 @@ export function ContentWorkflow({
 
       {canSchedule && (
         <section className="panel">
-          <span className="eyebrow">{ar ? "النشر" : "PUBLISHING"}</span>
-          <h2>{ar ? "جدولة المحتوى الموافق عليه" : "Schedule approved content"}</h2>
+          <span className="eyebrow">{ar ? "النشر" : "Publishing"}</span>
+          <h2>{ar ? "موعد النشر" : "Publish date & time"}</h2>
+          <p className="muted">{scheduledAt
+            ? (ar ? `رح ينزل البوست بـ ${new Date(scheduledAt).toLocaleString("ar", { dateStyle: "medium", timeStyle: "short" })} بعد موافقة العميل.` : `Publishes on ${new Date(scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} once the client approves.`)
+            : (ar ? "بلا موعد، البوست بينزل فوراً بعد موافقة العميل. حدد موعد إذا بدك ينزل بوقت معيّن." : "Without a time, the post goes out right after the client approves. Set a time to publish later.")}</p>
           <form className="form-grid compact-form" onSubmit={schedule}>
-            <label>{ar ? "التاريخ والوقت" : "Date & time"}<input name="scheduledAt" type="datetime-local" required /></label>
-            <button disabled={busy}>{ar ? "جدولة" : "Schedule"}</button>
+            <label>{ar ? "التاريخ والوقت" : "Date & time"}<input name="scheduledAt" type="datetime-local" required min={minLocal()} defaultValue={scheduledAt ? toLocalInput(scheduledAt) : undefined} suppressHydrationWarning /></label>
+            <button disabled={busy}>{scheduledAt ? (ar ? "غيّر الموعد" : "Change time") : (ar ? "حدّد الموعد" : "Set publish time")}</button>
           </form>
         </section>
       )}
