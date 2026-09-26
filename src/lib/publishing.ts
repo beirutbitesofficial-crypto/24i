@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { createBufferPost, getBufferPost, bufferConfigured } from "@/lib/buffer";
+import { createBufferPost, getBufferPost, bufferConfigured, bufferPostError } from "@/lib/buffer";
 import { signPublishAsset } from "@/lib/storage";
 import { notify } from "@/lib/notifications";
 
@@ -102,13 +102,14 @@ export async function publishApprovedContent(contentId: string) {
         metadata: normalizedPlatform(channel.service) === "instagram" ? instagramMetadata(content.type) : undefined,
       });
       const sent = post.status === "sent" || Boolean(post.sentAt);
+      const failed = post.status === "error";
       return await db.publishingAttempt.update({
         where: { id: attempt.id },
         data: {
-          status: sent ? "PUBLISHED" : "SUBMITTED",
+          status: failed ? "FAILED" : sent ? "PUBLISHED" : "SUBMITTED",
           providerPostId: post.id,
           publishedAt: sent ? new Date(post.sentAt || Date.now()) : null,
-          error: null,
+          error: failed ? `Buffer: ${bufferPostError(post) ?? "the post could not be published"}` : null,
         },
       });
     } catch (error) {
@@ -180,7 +181,7 @@ export async function reconcilePublishingAttempts(contentId?: string) {
       } else if (post.status === "error") {
         await db.publishingAttempt.update({
           where: { id: attempt.id },
-          data: { status: "FAILED", error: "Buffer reported a publishing error" },
+          data: { status: "FAILED", error: `Buffer: ${bufferPostError(post) ?? "the post could not be published (no reason given — check the post in Buffer)"}` },
         });
         updated += 1;
       }

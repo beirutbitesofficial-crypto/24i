@@ -14,6 +14,7 @@ type BufferPost = {
   status?: string | null;
   sentAt?: string | null;
   sharedNow?: boolean | null;
+  error?: { message: string; supportUrl?: string | null } | null;
 };
 
 const endpoint = "https://api.buffer.com";
@@ -103,6 +104,7 @@ export async function createBufferPost(input: {
             status
             sentAt
             sharedNow
+            error { message supportUrl }
           }
         }
         ... on MutationError {
@@ -126,6 +128,12 @@ export async function createBufferPost(input: {
   return data.createPost.post;
 }
 
+// Buffer's own explanation of a failed post, with its help article when there is one.
+export function bufferPostError(post: BufferPost) {
+  if (!post.error?.message) return null;
+  return post.error.supportUrl ? `${post.error.message} (help: ${post.error.supportUrl})` : post.error.message;
+}
+
 export async function getBufferPost(id: string) {
   const data = await gql<{ post: BufferPost }>(`
     query BufferPost($id: PostId!) {
@@ -134,6 +142,7 @@ export async function getBufferPost(id: string) {
         status
         sentAt
         sharedNow
+        error { message supportUrl }
       }
     }
   `, { id });

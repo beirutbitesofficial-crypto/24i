@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { Badge, Empty, humanize } from "@/components/ui";
 import { ContentWorkflow } from "@/components/content-workflow";
+import { RetryPublish } from "@/components/retry-publish";
 import { reconcilePublishingAttempts } from "@/lib/publishing";
 
 const statusAr: Record<string, string> = {
@@ -129,6 +130,7 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
             </div>
             {attempt.error && <p>{attempt.error}</p>}
           </div>)}
+          {content.publishingAttempts.some((attempt) => attempt.status === "FAILED") && ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"].includes(user.role.key) && <RetryPublish contentId={content.id} ar={ar} />}
         </section>}
 
         <section className="panel">
