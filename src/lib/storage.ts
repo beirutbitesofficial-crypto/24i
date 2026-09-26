@@ -134,3 +134,78 @@ export async function deleteStoredObject(key: string) {
   if (!bucket) throw new Error("STORAGE_NOT_CONFIGURED");
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
+
+export type StorageCheck = { step: string; ok: boolean; detail: string };
+
+const describe = (error: unknown) => {
+  const e = error as { name?: string; Code?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+  const code = e?.Code || e?.name || "Error";
+  const status = e?.$metadata?.httpStatusCode ? ` (HTTP ${e.$metadata.httpStatusCode})` : "";
+  return `${code}${status}: ${e?.message || "unknown error"}`;
+};
+
+const hints: Record<string, string> = {
+  NoSuchBucket: "The bucket in S3_BUCKET does not exist in this account. Check the exact bucket name.",
+  InvalidAccessKeyId: "S3_ACCESS_KEY_ID is wrong or the token was deleted.",
+  SignatureDoesNotMatch: "S3_SECRET_ACCESS_KEY does not match the Access Key ID.",
+  AccessDenied: "The token cannot write to this bucket. Give it Object Read & Write on this bucket.",
+  Unauthorized: "The token cannot access this bucket. Give it Object Read & Write on this bucket.",
+};
+
+// Runs the same steps a browser upload needs, from the server, and reports the first failure
+// with a human-readable hint. Used by the admin "Test storage" button.
+export async function diagnoseStorage(siteOrigin: string): Promise<StorageCheck[]> {
+  const checks: StorageCheck[] = [];
+  const missing = [
+    !bucket && "S3_BUCKET",
+    !accessKeyId && "S3_ACCESS_KEY_ID",
+    !clean(process.env.S3_SECRET_ACCESS_KEY) && "S3_SECRET_ACCESS_KEY",
+  ].filter(Boolean);
+  if (endpointInvalid) {
+    checks.push({ step: "Settings", ok: false, detail: "S3_ENDPOINT is not a valid address. It should look like https://<account-id>.r2.cloudflarestorage.com" });
+    return checks;
+  }
+  if (missing.length) {
+    checks.push({ step: "Settings", ok: false, detail: `Missing: ${missing.join(", ")}` });
+    return checks;
+  }
+  checks.push({ step: "Settings", ok: true, detail: `Bucket "${bucket}" at ${endpoint ?? "AWS S3"}, region ${clean(process.env.S3_REGION) || "us-east-1"}` });
+
+  const key = `healthchecks/${crypto.randomUUID()}.txt`;
+  try {
+    await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: "ok", ContentType: "text/plain" }));
+    checks.push({ step: "Keys & bucket", ok: true, detail: "The server can write to the bucket." });
+  } catch (error) {
+    const code = (error as { Code?: string; name?: string })?.Code || (error as { name?: string })?.name || "";
+    checks.push({ step: "Keys & bucket", ok: false, detail: `${hints[code] ?? "Storage rejected the request."} (${describe(error)})` });
+    return checks;
+  }
+
+  try {
+    const url = await getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
+    const res = await fetch(url, { method: "PUT", headers: { "content-type": "text/plain" }, body: "ok" });
+    checks.push(res.ok
+      ? { step: "Upload link", ok: true, detail: "A signed upload link works." }
+      : { step: "Upload link", ok: false, detail: `Signed upload was rejected with HTTP ${res.status}. ${(await res.text()).slice(0, 200)}` });
+  } catch (error) {
+    checks.push({ step: "Upload link", ok: false, detail: describe(error) });
+  }
+
+  try {
+    const url = await getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
+    const res = await fetch(url, {
+      method: "OPTIONS",
+      headers: { origin: siteOrigin, "access-control-request-method": "PUT", "access-control-request-headers": "content-type" },
+    });
+    const allowOrigin = res.headers.get("access-control-allow-origin");
+    const ok = res.ok && (allowOrigin === "*" || allowOrigin === siteOrigin);
+    checks.push(ok
+      ? { step: "CORS (browser uploads)", ok: true, detail: `Browsers on ${siteOrigin} are allowed to upload.` }
+      : { step: "CORS (browser uploads)", ok: false, detail: `Browsers on ${siteOrigin} are blocked (HTTP ${res.status}, allow-origin: ${allowOrigin ?? "none"}). Add a CORS policy on bucket "${bucket}" allowing this origin with methods GET, PUT, HEAD and headers *.` });
+  } catch (error) {
+    checks.push({ step: "CORS (browser uploads)", ok: false, detail: describe(error) });
+  }
+
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined);
+  return checks;
+}
