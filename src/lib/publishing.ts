@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { createBufferPost, getBufferPost, bufferConfigured, bufferPostError } from "@/lib/buffer";
-import { signPublishAsset } from "@/lib/storage";
+import { createPublicMediaUrl } from "@/lib/public-media";
 import { notify } from "@/lib/notifications";
 
 function normalizedPlatform(value: string) {
@@ -16,7 +16,7 @@ function instagramMetadata(type: string) {
   return { instagram: { type: value, shouldShareToFeed: value !== "story" } };
 }
 
-export async function publishApprovedContent(contentId: string) {
+export async function publishApprovedContent(contentId: string, baseUrl: string) {
   if (!bufferConfigured()) return { skipped: "BUFFER_API_KEY_MISSING" as const };
 
   const content = await db.contentItem.findUnique({
@@ -61,7 +61,7 @@ export async function publishApprovedContent(contentId: string) {
   if (!orderedFiles.length) throw new Error("PUBLISH_MEDIA_NOT_AVAILABLE");
 
   const assets = await Promise.all(orderedFiles.map(async (file) => {
-    const url = await signPublishAsset(file.key, file.mimeType);
+    const url = createPublicMediaUrl(file, baseUrl);
     if (file.mimeType.startsWith("video/")) return { video: { url, metadata: { thumbnailOffset: 1000 } } };
     if (file.mimeType.startsWith("image/")) return { image: { url } };
     throw new Error(`UNSUPPORTED_PUBLISH_MEDIA_${file.mimeType}`);

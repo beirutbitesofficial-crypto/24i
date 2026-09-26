@@ -209,3 +209,8 @@ export async function diagnoseStorage(siteOrigin: string): Promise<StorageCheck[
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined);
   return checks;
 }
+
+// Streams a stored object (optionally a byte range) so the app can serve it from its own domain.
+export async function openStoredObject(key: string, range?: string | null) {
+  return s3.send(new GetObjectCommand({ Bucket: bucket, Key: key, Range: range || undefined }));
+}

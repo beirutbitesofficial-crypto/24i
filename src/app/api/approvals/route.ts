@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 import { deleteStoredObject } from "@/lib/storage";
 import { publishApprovedContent } from "@/lib/publishing";
+import { publicBaseUrl } from "@/lib/public-media";
 
 const schema = z.object({
   contentId: z.string(),
@@ -142,7 +143,7 @@ async function handlePOST(req: Request) {
 
   if (user.role.key === "CLIENT" && parsed.data.scope === "ALL" && state === "APPROVED") {
     try {
-      const publishing = await publishApprovedContent(content.id);
+      const publishing = await publishApprovedContent(content.id, publicBaseUrl(req));
       await db.auditLog.create({
         data: {
           userId: user.id,

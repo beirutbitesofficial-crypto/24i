@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { authorizeRecord } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { publishApprovedContent } from "@/lib/publishing";
+import { publicBaseUrl } from "@/lib/public-media";
 
 // Retries automatic publishing for approved content (only channels that did not already succeed).
-async function handlePOST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const content = await db.contentItem.findUnique({ where: { id }, select: { clientId: true, visualStatus: true, captionStatus: true } });
   if (!content) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -17,7 +18,7 @@ async function handlePOST(_: Request, { params }: { params: Promise<{ id: string
     return NextResponse.json({ error: "The client has not approved this content yet" }, { status: 409 });
   }
   try {
-    const result = await publishApprovedContent(id);
+    const result = await publishApprovedContent(id, publicBaseUrl(req));
     await db.auditLog.create({ data: { userId: user.id, action: "AUTO_PUBLISH_RETRIED", entityType: "ContentItem", entityId: id, newValue: result } });
     return NextResponse.json(result);
   } catch (error) {
