@@ -19,8 +19,13 @@ type BufferPost = {
 const endpoint = "https://api.buffer.com";
 
 function apiKey() {
-  const key = process.env.BUFFER_API_KEY;
+  const key = process.env.BUFFER_API_KEY?.trim().replace(/^["']|["']$/g, "").trim();
   if (!key) throw new Error("BUFFER_API_KEY_MISSING");
+  // Keys copied while Buffer shows them masked contain "•" characters, which cannot be sent
+  // in an HTTP header and otherwise fail with a cryptic ByteString error.
+  if (!/^[\x21-\x7e]+$/.test(key)) {
+    throw new Error("BUFFER_API_KEY in Hostinger is not a valid key (it contains hidden or masked characters such as •). Create a new key in Buffer, copy it with the Copy button, paste it into BUFFER_API_KEY and redeploy.");
+  }
   return key;
 }
 
@@ -40,6 +45,9 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
     errors?: Array<{ message?: string }>;
   } | null;
 
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("Buffer rejected BUFFER_API_KEY (it is wrong, expired or was deleted). Create a new key in Buffer, update BUFFER_API_KEY in Hostinger and redeploy.");
+  }
   if (!response.ok) throw new Error(`BUFFER_HTTP_${response.status}`);
   if (!payload) throw new Error("BUFFER_INVALID_RESPONSE");
   if (payload.errors?.length) throw new Error(payload.errors.map((item) => item.message || "Buffer error").join("; "));
