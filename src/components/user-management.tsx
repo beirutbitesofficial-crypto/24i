@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { Notice } from "@/components/ui";
 
 type ClientOption = { id: string; brandName: string };
@@ -48,6 +48,14 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole 
   const [users] = useState(initialUsers);
   const [roles, setRoles] = useState(initialRoles);
   const [selectedId, setSelectedId] = useState(initialUsers[0]?.id || "");
+  const editorRef = useRef<HTMLFormElement>(null);
+  // On phones the editor sits below the list, so bring it into view when a user is picked.
+  function selectUser(id: string) {
+    setSelectedId(id);
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      requestAnimationFrame(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  }
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const selected = useMemo(() => users.find((u) => u.id === selectedId), [users, selectedId]);
@@ -135,11 +143,11 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole 
       <div className="section-head"><div><span className="eyebrow">TEAM</span><h2>User management</h2></div><b>{users.length} accounts</b></div>
       <div className="user-layout">
         <div className="user-list">
-          {users.map((u) => <button type="button" className={`user-card ${u.id === selectedId ? "active" : ""}`} key={u.id} onClick={() => setSelectedId(u.id)}>
+          {users.map((u) => <button type="button" className={`user-card ${u.id === selectedId ? "active" : ""}`} key={u.id} onClick={() => selectUser(u.id)}>
             <span><b>{u.name}</b><small>{u.email}</small></span><span><em>{u.roleName}</em><small className={`status ${u.status.toLowerCase()}`}>{u.status}</small></span>
           </button>)}
         </div>
-        {selected && <form key={selected.id} onSubmit={updateUser} className="user-editor">
+        {selected && <form ref={editorRef} key={selected.id} onSubmit={updateUser} className="user-editor">
           <h3>Edit {selected.name}</h3>
           <label>Name<input name="name" defaultValue={selected.name} required /></label>
           <label>Role<select name="roleKey" defaultValue={selected.roleKey} disabled={!selected.canEdit}>{roles.filter((r) => actorRole === "ADMIN" || r.key !== "ADMIN").map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}</select></label>

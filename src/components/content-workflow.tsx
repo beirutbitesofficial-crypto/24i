@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { fastStart } from "@/lib/faststart";
+import { storageUploadError } from "@/lib/upload-client";
 
 type Props = {
   contentId: string;
@@ -55,7 +57,7 @@ function putFileWithProgress(
         onProgress(file.size, file.size);
         resolve();
       } else {
-        reject(new Error(`Upload failed (${xhr.status})`));
+        reject(new Error(storageUploadError(xhr.status, document.documentElement.lang === "ar" || document.querySelector("[data-language=ar]") !== null)));
       }
     };
     xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
@@ -110,7 +112,9 @@ export function ContentWorkflow({
     }
   }
 
-  async function uploadAsset(file: File, onProgress?: (loaded: number, total: number) => void) {
+  async function uploadAsset(original: File, onProgress?: (loaded: number, total: number) => void) {
+    // Move the video index to the front so the review player can start without downloading the whole file.
+    const file = await fastStart(original);
     const mimeType = file.type || "application/octet-stream";
     const signRes = await fetch("/api/uploads/sign", {
       method: "POST",

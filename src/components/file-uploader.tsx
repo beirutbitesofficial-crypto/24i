@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { fastStart } from "@/lib/faststart";
+import { storageUploadError } from "@/lib/upload-client";
 
 type ClientOption = { id: string; brandName: string };
 
@@ -23,7 +25,7 @@ function putFileWithProgress(
         onProgress(100);
         resolve();
       } else {
-        reject(new Error(`Upload failed (${xhr.status})`));
+        reject(new Error(storageUploadError(xhr.status)));
       }
     };
     xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
@@ -53,9 +55,9 @@ export function FileUploader({
     const data = new FormData(form);
     const clientId = String(data.get("clientId") || "");
     const input = form.elements.namedItem("file") as HTMLInputElement;
-    const file = input.files?.[0];
+    const picked = input.files?.[0];
 
-    if (!file) {
+    if (!picked) {
       setBusy(false);
       setProgress(null);
       setMessage("Choose a file first.");
@@ -63,6 +65,8 @@ export function FileUploader({
     }
 
     try {
+      // Move the video index to the front so previews start without downloading the whole file.
+      const file = await fastStart(picked);
       const mimeType = file.type || "application/octet-stream";
       const sign = await fetch("/api/uploads/sign", {
         method: "POST",

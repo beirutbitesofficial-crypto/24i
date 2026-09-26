@@ -326,7 +326,7 @@ td.title-cell { min-width: 200px; }
 .status.disabled { color: var(--danger) !important; }
 .status.active { color: var(--success) !important; }
 .status.pending { color: var(--warning) !important; }
-.user-editor { display: grid; gap: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 0; }
+.user-editor { scroll-margin-top: 84px; display: grid; gap: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 0; }
 .user-editor .client-checks { grid-column: auto; }
 .meta-line { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); }
 .meta-line b { color: var(--ink); }

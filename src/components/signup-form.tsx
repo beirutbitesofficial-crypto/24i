@@ -5,7 +5,14 @@ import { useState } from "react";
 
 export function SignupForm() {
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  if (pending) {
+    return <div className="notice success" role="status">
+      Your account was created and is waiting for 24i Production to confirm it. We&apos;ll let you in as soon as it&apos;s approved — try signing in later. <Link href="/">Back to sign in</Link>
+    </div>;
+  }
 
   return <form
     onSubmit={async (event) => {
@@ -28,6 +35,10 @@ export function SignupForm() {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Could not create account");
+        if (data.pending) {
+          setPending(true);
+          return;
+        }
         window.location.href = "/";
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not create account");

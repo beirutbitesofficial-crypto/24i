@@ -27,6 +27,11 @@ async function handlePOST(req: Request) {
     const passwordOk = await verifyPassword(user?.passwordHash ?? (await dummyHash()), password);
     const valid = Boolean(user && user.status === "ACTIVE" && passwordOk);
 
+    // Only reveal a pending status to someone who knows the password.
+    if (user && passwordOk && user.status === "PENDING") {
+      return NextResponse.json({ error: "Your account is waiting for 24i Production to approve it. You'll be able to sign in once it's confirmed." }, { status: 403 });
+    }
+
     if (!user || !valid) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
