@@ -98,7 +98,9 @@ export function ContentWorkflow({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [clientNote, setClientNote] = useState("");
-  const [showRevisionNotes, setShowRevisionNotes] = useState(false);
+  // Client review steps: pick what is wrong, then either write notes or (for the caption) fix it directly.
+  type RevisionStep = "none" | "choose" | "VISUAL" | "CAPTION_CHOICE" | "CAPTION_NOTES" | "CAPTION_EDIT" | "ALL";
+  const [revision, setRevision] = useState<RevisionStep>("none");
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadLabel, setUploadLabel] = useState("");
 
@@ -258,7 +260,20 @@ export function ContentWorkflow({
           : `V${currentVersion + 1} uploaded. The Social Media Manager was notified to add the caption.`));
   }
 
-  function clientDecision(decision: "APPROVED" | "REVISION_REQUESTED") {
+  function clientEditCaption(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    void run(
+      () => request(`/api/content/${contentId}/client-caption`, {
+        caption: f.get("caption"),
+        hashtags: String(f.get("hashtags") || "").trim() || undefined,
+        cta: String(f.get("cta") || "").trim() || undefined,
+      }),
+      ar ? "تم حفظ الكابشن والموافقة على المحتوى." : "Caption saved and content approved.",
+    );
+  }
+
+  function clientDecision(decision: "APPROVED" | "REVISION_REQUESTED", scope: "ALL" | "VISUAL" | "CAPTION" = "ALL") {
     if (decision === "REVISION_REQUESTED" && !clientNote.trim()) {
       setMessage(ar ? "اكتب ملاحظتك قبل إرسال طلب التعديل." : "Write your notes before sending the revision request.");
       return;
@@ -267,7 +282,7 @@ export function ContentWorkflow({
     void run(
       () => request("/api/approvals", {
         contentId,
-        scope: "ALL",
+        scope,
         decision,
         note: clientNote.trim() || undefined,
       }),
@@ -275,9 +290,11 @@ export function ContentWorkflow({
         ? (ar
             ? "تمت الموافقة. وصل إشعار للمدير والمونتير ومدير السوشيال ميديا."
             : "Approved. The Manager, Editor and Social Media Manager were notified.")
-        : (ar
-            ? "تم إرسال الملاحظات للمدير والمونتير ومدير السوشيال ميديا."
-            : "Your notes were sent to the Manager, Editor and Social Media Manager.")
+        : scope === "VISUAL"
+          ? (ar ? "تم إرسال ملاحظاتك للمونتير ليعدّل الفيديو." : "Your notes were sent to the editor to update the video.")
+          : scope === "CAPTION"
+            ? (ar ? "تم إرسال ملاحظاتك لمدير السوشيال ميديا ليعدّل الكابشن." : "Your notes were sent to the Social Media Manager to update the caption.")
+            : (ar ? "تم إرسال ملاحظاتك للمونتير ومدير السوشيال ميديا." : "Your notes were sent to the editor and the Social Media Manager.")
     );
   }
 
@@ -385,43 +402,75 @@ export function ContentWorkflow({
                 {captionCta && <p><b>CTA:</b> {captionCta}</p>}
               </div>
 
-              {!showRevisionNotes ? (
+              {revision === "none" && (
                 <div className="review-actions">
                   <button type="button" disabled={busy} onClick={() => clientDecision("APPROVED")}>
                     {ar ? "موافق" : "Approve"}
                   </button>
-                  <button
-                    type="button"
-                    className="revision-button"
-                    disabled={busy}
-                    onClick={() => {
-                      setMessage("");
-                      setShowRevisionNotes(true);
-                    }}
-                  >
+                  <button type="button" className="revision-button" disabled={busy} onClick={() => { setMessage(""); setRevision("choose"); }}>
                     {ar ? "غير موافق / طلب تعديل" : "Not approved / Request changes"}
                   </button>
                 </div>
-              ) : (
+              )}
+
+              {revision === "choose" && (
                 <div className="panel revision-feedback">
-                  <span className="eyebrow">{ar ? "ملاحظات التعديل" : "REVISION NOTES"}</span>
+                  <span className="eyebrow">{ar ? "طلب تعديل" : "Request changes"}</span>
                   <h3>{ar ? "شو بدك يتعدّل؟" : "What needs to change?"}</h3>
-                  <textarea
-                    value={clientNote}
-                    onChange={(e) => setClientNote(e.target.value)}
-                    rows={5}
-                    autoFocus
-                    placeholder={ar ? "اكتب الملاحظات بوضوح…" : "Write the requested changes clearly…"}
-                  />
+                  <div className="choice-list">
+                    <button type="button" className="secondary" onClick={() => setRevision("VISUAL")}>🎬 {ar ? "الفيديو / التصميم" : "The video / design"}</button>
+                    <button type="button" className="secondary" onClick={() => setRevision("CAPTION_CHOICE")}>✍️ {ar ? "الكابشن / الهاشتاغ" : "The caption / hashtags"}</button>
+                    <button type="button" className="secondary" onClick={() => setRevision("ALL")}>🔁 {ar ? "الاتنين" : "Both"}</button>
+                  </div>
+                  <button type="button" className="secondary" onClick={() => setRevision("none")}>{ar ? "رجوع" : "Back"}</button>
+                </div>
+              )}
+
+              {revision === "CAPTION_CHOICE" && (
+                <div className="panel revision-feedback">
+                  <span className="eyebrow">{ar ? "تعديل الكابشن" : "Caption changes"}</span>
+                  <h3>{ar ? "كيف بدك تعدّل الكابشن؟" : "How do you want to change the caption?"}</h3>
+                  <div className="choice-list">
+                    <button type="button" className="secondary" onClick={() => setRevision("CAPTION_EDIT")}>✏️ {ar ? "بعدّلو أنا وبوافق" : "I'll edit it myself and approve"}</button>
+                    <button type="button" className="secondary" onClick={() => setRevision("CAPTION_NOTES")}>💬 {ar ? "بعت ملاحظة لمدير السوشيال ميديا" : "Send notes to the Social Media Manager"}</button>
+                  </div>
+                  <button type="button" className="secondary" onClick={() => setRevision("choose")}>{ar ? "رجوع" : "Back"}</button>
+                </div>
+              )}
+
+              {revision === "CAPTION_EDIT" && (
+                <form className="panel revision-feedback compact-form" onSubmit={clientEditCaption}>
+                  <span className="eyebrow">{ar ? "عدّل الكابشن" : "Edit the caption"}</span>
+                  <label>{ar ? "الكابشن" : "Caption"}<textarea name="caption" rows={6} defaultValue={captionText ?? ""} required autoFocus /></label>
+                  <label>{ar ? "الهاشتاغ" : "Hashtags"}<textarea name="hashtags" rows={2} defaultValue={captionHashtags ?? ""} /></label>
+                  <label>CTA<input name="cta" defaultValue={captionCta ?? ""} /></label>
+                  <p className="muted">{ar ? "بس تحفظ، بتكون وافقت على المحتوى وبينزل حسب الموعد." : "Saving also approves the content, and it will be published as planned."}</p>
                   <div className="review-actions">
-                    <button type="button" className="revision-button" disabled={busy || !clientNote.trim()} onClick={() => clientDecision("REVISION_REQUESTED")}>
+                    <button disabled={busy}>{busy ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "احفظ ووافق" : "Save & approve")}</button>
+                    <button type="button" className="secondary" disabled={busy} onClick={() => setRevision("CAPTION_CHOICE")}>{ar ? "رجوع" : "Back"}</button>
+                  </div>
+                </form>
+              )}
+
+              {(revision === "VISUAL" || revision === "CAPTION_NOTES" || revision === "ALL") && (
+                <div className="panel revision-feedback">
+                  <span className="eyebrow">{ar ? "ملاحظات التعديل" : "Revision notes"}</span>
+                  <h3>{revision === "VISUAL"
+                    ? (ar ? "شو بدك يتغيّر بالفيديو/التصميم؟" : "What should change in the video/design?")
+                    : revision === "CAPTION_NOTES"
+                      ? (ar ? "شو بدك يتغيّر بالكابشن؟" : "What should change in the caption?")
+                      : (ar ? "شو بدك يتغيّر بالفيديو والكابشن؟" : "What should change in the video and the caption?")}</h3>
+                  <p className="muted">{revision === "VISUAL"
+                    ? (ar ? "ملاحظتك رح توصل للمونتير." : "Your note goes to the editor.")
+                    : revision === "CAPTION_NOTES"
+                      ? (ar ? "ملاحظتك رح توصل لمدير السوشيال ميديا." : "Your note goes to the Social Media Manager.")
+                      : (ar ? "ملاحظتك رح توصل للمونتير ومدير السوشيال ميديا." : "Your note goes to the editor and the Social Media Manager.")}</p>
+                  <textarea value={clientNote} onChange={(e) => setClientNote(e.target.value)} rows={5} autoFocus placeholder={ar ? "اكتب الملاحظات بوضوح…" : "Write the requested changes clearly…"} />
+                  <div className="review-actions">
+                    <button type="button" className="revision-button" disabled={busy || !clientNote.trim()} onClick={() => clientDecision("REVISION_REQUESTED", revision === "VISUAL" ? "VISUAL" : revision === "CAPTION_NOTES" ? "CAPTION" : "ALL")}>
                       {busy ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال الملاحظات" : "Send notes")}
                     </button>
-                    <button type="button" className="secondary" disabled={busy} onClick={() => {
-                      setShowRevisionNotes(false);
-                      setClientNote("");
-                      setMessage("");
-                    }}>
+                    <button type="button" className="secondary" disabled={busy} onClick={() => { setRevision(revision === "CAPTION_NOTES" ? "CAPTION_CHOICE" : "choose"); setMessage(""); }}>
                       {ar ? "رجوع" : "Back"}
                     </button>
                   </div>

@@ -337,6 +337,8 @@ td.title-cell { min-width: 200px; }
 .role-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .permission-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 .permission-groups fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px; background: var(--surface); }
+.choice-list { display: grid; gap: 8px; margin: 12px 0; }
+.choice-list button { justify-content: flex-start; width: 100%; padding: 12px 14px; }
 .action-row { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* Bar chart (reports) */
@@ -380,3 +382,10 @@ td.title-cell { min-width: 200px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+
+/* Dark mode for review/feedback panels from the workflow stylesheet (it hard-codes light colours). */
+[data-theme="dark"] .revision-feedback { background: var(--danger-bg); border-color: var(--danger-line); }
+[data-theme="dark"] .feedback-box, [data-theme="dark"] .client-caption-preview { background: var(--surface-2); border-color: var(--line); color: var(--ink); }
+[data-theme="dark"] .revision-button { background: var(--surface); color: var(--danger); border-color: var(--danger-line); }
+[data-theme="dark"] .revision-button:hover { background: var(--danger-bg); }
+[data-theme="dark"] .push-modal { background: var(--surface); color: var(--ink); }

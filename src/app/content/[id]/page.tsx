@@ -63,7 +63,8 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
   const storageReady = Boolean(process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY && process.env.S3_BUCKET);
   const isClient = user.role.key === "CLIENT";
   const isCarousel = content.type === "CAROUSEL";
-  const reviewResolved = content.status === "REVISION_REQUESTED";
+  const isPublished = content.status === "PUBLISHED";
+  const reviewResolved = content.status === "REVISION_REQUESTED" || isPublished;
   const latestMediaPurged = Boolean(
     latestVersion && reviewResolved && (
       isCarousel
@@ -96,8 +97,10 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
         </div>
 
         {latestMediaPurged ? <div className="review-empty">
-          <b>{ar ? "اكتملت المراجعة" : "Review completed"}</b>
-          <span>{ar ? "تم حذف ملف الميديا تلقائياً بعد قرار العميل لتوفير مساحة التخزين." : "The media file was automatically removed after the client decision to save storage."}</span>
+          <b>{isPublished ? (ar ? "تم النشر ✅" : "Published ✅") : (ar ? "اكتملت المراجعة" : "Review completed")}</b>
+          <span>{isPublished
+            ? (ar ? "انمحى ملف الميديا من التخزين تلقائياً بعد النشر لتوفير المساحة." : "The media file was removed from storage automatically after publishing, to save space.")
+            : (ar ? "تم حذف ملف الميديا تلقائياً بعد قرار العميل لتوفير مساحة التخزين." : "The media file was automatically removed after the client decision to save storage.")}</span>
         </div> : isCarousel && latestVersion?.slides.length ? <div className="carousel-review-grid">
           {latestVersion.slides.map((slide) => {
             const file = slideFileMap.get(slide.fileId);
@@ -112,7 +115,11 @@ export default async function ContentDetail({ params }: { params: Promise<{ id: 
         </div> : <div className="review-empty"><b>{ar ? "ما في ملف مرفوع بعد." : "No visual uploaded yet."}</b><span>{isClient ? (ar ? "رح يوصلك المحتوى هون لما يصير جاهز." : "The content will appear here when it is ready.") : (ar ? "المونتير المعيّن بيرفع أول نسخة من هون." : "The assigned Editor can upload the first version below.")}</span></div>}
 
         {!isClient && latestVersion?.notes && <div className="feedback-box"><b>{ar ? "ملاحظة المونتير" : "Editor note"}</b><p>{latestVersion.notes}</p></div>}
-        {!isClient && latestRevision?.notes.map((note) => <div className="feedback-box revision-feedback" key={note.id}><b>{ar ? "آخر ملاحظة تعديل من العميل" : "Latest client revision note"}</b><p>{note.body}</p></div>)}
+        {!isClient && content.status === "REVISION_REQUESTED" && latestRevision?.notes.map((note) => <div className="feedback-box revision-feedback" key={note.id}><b>{latestRevision.scope === "VISUAL"
+          ? (ar ? "العميل بدّو تعديل عالفيديو/التصميم" : "Client wants changes to the video/design")
+          : latestRevision.scope === "CAPTION"
+            ? (ar ? "العميل بدّو تعديل عالكابشن/الهاشتاغ" : "Client wants changes to the caption/hashtags")
+            : (ar ? "العميل بدّو تعديل عالفيديو والكابشن" : "Client wants changes to the video and caption")}</b><p>{note.body}</p></div>)}
       </section>
 
       {workflow}

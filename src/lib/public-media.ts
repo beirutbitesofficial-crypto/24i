@@ -22,8 +22,11 @@ function safeName(originalName: string, key: string) {
   return `${base}${ext}`;
 }
 
-export function createPublicMediaUrl(file: { id: string; key: string; originalName: string }, baseUrl: string) {
-  const expires = Math.floor(Date.now() / 1000) + PUBLIC_MEDIA_TTL_SECONDS;
+// validUntil: keep the link alive at least until then (e.g. a post scheduled weeks ahead,
+// which Buffer may only fetch when it publishes). Links always last at least 7 days.
+export function createPublicMediaUrl(file: { id: string; key: string; originalName: string }, baseUrl: string, validUntil?: Date) {
+  const minimum = Math.floor(Date.now() / 1000) + PUBLIC_MEDIA_TTL_SECONDS;
+  const expires = Math.max(minimum, validUntil ? Math.floor(validUntil.getTime() / 1000) + 3 * 24 * 60 * 60 : 0);
   return `${baseUrl.replace(/\/$/, "")}/api/media/${file.id}/${expires}/${signature(file.id, expires)}/${safeName(file.originalName, file.key)}`;
 }
 

@@ -44,7 +44,9 @@ async function handlePOST(req: Request) {
   }
 
   if (user.role.key === "CLIENT") {
-    if (parsed.data.scope !== "ALL") {
+    // Clients approve the whole package at once, but may ask for changes to just the
+    // video/design (VISUAL), just the caption/hashtags (CAPTION), or both (ALL).
+    if (state === "APPROVED" && parsed.data.scope !== "ALL") {
       return NextResponse.json({ error: "Client approval must include visual and caption together" }, { status: 400 });
     }
     if (content.status !== "WAITING_CLIENT_APPROVAL" || !currentVersion || !content.captions[0]) {
@@ -87,7 +89,8 @@ async function handlePOST(req: Request) {
     await tx.contentItem.update({ where: { id: content.id }, data: update });
     // Close the pending review requests this decision answers.
     await tx.approval.updateMany({
-      where: { contentId: content.id, state: "WAITING", id: { not: approval.id }, scope: parsed.data.scope === "ALL" ? { in: ["VISUAL", "CAPTION", "ALL"] } : parsed.data.scope },
+      // A client decision answers the whole package that was sent to them.
+      where: { contentId: content.id, state: "WAITING", id: { not: approval.id }, ...(user.role.key === "CLIENT" || parsed.data.scope === "ALL" ? {} : { scope: parsed.data.scope }) },
       data: { state, decidedAt: new Date() },
     });
     await tx.auditLog.create({
@@ -122,21 +125,28 @@ async function handlePOST(req: Request) {
     select: { id: true },
   });
 
-  const recipients = [...new Set([
-    currentVersion?.uploadedById,
-    content.captions[0]?.createdById,
-    content.ownerId,
-    ...socialManagers.map((x) => x.id),
-    ...managers.map((x) => x.id),
-  ].filter((recipientId): recipientId is string => !!recipientId && recipientId !== user.id))];
+  // Route the note to whoever has to act on it: video/design changes go to the editor,
+  // caption/hashtag changes go to the Social Media Manager. Managers always see it.
+  const editors = [currentVersion?.uploadedById, content.ownerId];
+  const copywriters = [content.captions[0]?.createdById, ...socialManagers.map((x) => x.id)];
+  const targets = state === "APPROVED"
+    ? [...editors, ...copywriters]
+    : parsed.data.scope === "VISUAL" ? [...editors, ...socialManagers.map((x) => x.id)]
+    : parsed.data.scope === "CAPTION" ? copywriters
+    : [...editors, ...copywriters];
+  const recipients = [...new Set([...targets, ...managers.map((x) => x.id)]
+    .filter((recipientId): recipientId is string => !!recipientId && recipientId !== user.id))];
 
+  const what = parsed.data.scope === "VISUAL" ? "the video/design" : parsed.data.scope === "CAPTION" ? "the caption/hashtags" : "the video and the caption";
   if (recipients.length) {
     await notify(recipients, {
       kind: state === "APPROVED" ? "APPROVAL" : "REVISION",
-      title: state === "APPROVED" ? "Content approved by client" : "Client requested changes",
+      title: state === "APPROVED"
+        ? "Content approved by client"
+        : parsed.data.scope === "VISUAL" ? "Client wants changes to the video" : parsed.data.scope === "CAPTION" ? "Client wants changes to the caption" : "Client requested changes",
       body: state === "APPROVED"
         ? `${content.client.brandName} approved ${content.title} — visual + caption.`
-        : `${content.client.brandName} requested changes on ${content.title}: ${parsed.data.note}`,
+        : `${content.client.brandName} wants changes to ${what} on ${content.title}: ${parsed.data.note}`,
       deepLink: `/content/${content.id}`,
     });
   }
@@ -171,7 +181,8 @@ async function handlePOST(req: Request) {
   // scheduling/publishing and is cleaned up only after publishing.
   if (
     user.role.key === "CLIENT" &&
-    parsed.data.scope === "ALL" &&
+    // The video is only replaced when the change is about the video; caption-only feedback keeps it.
+    parsed.data.scope !== "CAPTION" &&
     state === "REVISION_REQUESTED" &&
     currentVersion
   ) {

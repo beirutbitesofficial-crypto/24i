@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { createBufferPost, getBufferPost, bufferConfigured, bufferPostError } from "@/lib/buffer";
 import { createPublicMediaUrl } from "@/lib/public-media";
+import { deleteStoredObject } from "@/lib/storage";
 import { notify } from "@/lib/notifications";
 
 function normalizedPlatform(value: string) {
@@ -21,6 +22,22 @@ const MIN_SCHEDULE_LEAD_MS = 2 * 60 * 1000;
 export function scheduledPublishTime(calendar: { scheduledAt: Date; publishingStatus: string } | null | undefined) {
   if (!calendar || calendar.publishingStatus !== "SCHEDULED") return undefined;
   return calendar.scheduledAt.getTime() > Date.now() + MIN_SCHEDULE_LEAD_MS ? calendar.scheduledAt : undefined;
+}
+
+// Once a post is live on every channel the media files are no longer needed: delete them
+// from storage to save space. Best-effort; anything that fails stays for the next attempt.
+export async function purgePublishedMedia(contentId: string) {
+  const files = await db.fileObject.findMany({ where: { contentId, deletedAt: null }, select: { id: true, key: true } });
+  if (!files.length) return { deleted: 0, failed: 0 };
+  const results = await Promise.allSettled(files.map(async (file) => {
+    await deleteStoredObject(file.key);
+    return file.id;
+  }));
+  const deletedIds = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  if (deletedIds.length) await db.fileObject.updateMany({ where: { id: { in: deletedIds } }, data: { deletedAt: new Date() } });
+  const summary = { deleted: deletedIds.length, failed: files.length - deletedIds.length };
+  await db.auditLog.create({ data: { action: "CONTENT_PUBLISHED_MEDIA_PURGED", entityType: "ContentItem", entityId: contentId, newValue: summary } });
+  return summary;
 }
 
 export async function publishApprovedContent(contentId: string, baseUrl: string) {
@@ -68,17 +85,17 @@ export async function publishApprovedContent(contentId: string, baseUrl: string)
 
   if (!orderedFiles.length) throw new Error("PUBLISH_MEDIA_NOT_AVAILABLE");
 
+  // A publish time set with "Schedule" (calendar status SCHEDULED) in the future makes Buffer
+  // publish at that time; otherwise (none, a plan-only date, or already past) publish now.
+  const dueAt = scheduledPublishTime(content.calendar);
   const assets = await Promise.all(orderedFiles.map(async (file) => {
-    const url = createPublicMediaUrl(file, baseUrl);
+    const url = createPublicMediaUrl(file, baseUrl, dueAt);
     if (file.mimeType.startsWith("video/")) return { video: { url, metadata: { thumbnailOffset: 1000 } } };
     if (file.mimeType.startsWith("image/")) return { image: { url } };
     throw new Error(`UNSUPPORTED_PUBLISH_MEDIA_${file.mimeType}`);
   }));
 
   const text = postText(caption);
-  // A publish time set with "Schedule" (calendar status SCHEDULED) in the future makes Buffer
-  // publish at that time; otherwise (none, a plan-only date, or already past) publish now.
-  const dueAt = scheduledPublishTime(content.calendar);
 
   const results = await Promise.all(channels.map(async (channel) => {
     const existing = await db.publishingAttempt.findUnique({
@@ -144,6 +161,7 @@ export async function publishApprovedContent(contentId: string, baseUrl: string)
       where: { id: contentId },
       data: { status: "PUBLISHED", publishedAt: new Date() },
     });
+    await purgePublishedMedia(contentId);
   } else if (!failed.length && pending.length) {
     await db.contentItem.update({
       where: { id: contentId },
@@ -210,6 +228,7 @@ export async function reconcilePublishingAttempts(contentId?: string) {
     const all = await db.publishingAttempt.findMany({ where: { contentId: id } });
     if (all.length && all.every((item) => item.status === "PUBLISHED")) {
       await db.contentItem.update({ where: { id }, data: { status: "PUBLISHED", publishedAt: new Date() } });
+      await purgePublishedMedia(id);
     }
   }
 
