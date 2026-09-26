@@ -2,15 +2,35 @@ import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectComm
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "node:crypto";
 
-const bucket = process.env.S3_BUCKET!;
+// Environment values are often pasted with stray spaces or quotes; tolerate that.
+const clean = (value?: string) => value?.trim().replace(/^["']|["']$/g, "").trim() || undefined;
+
+// Accepts "https://<id>.r2.cloudflarestorage.com", a bare host, or a URL with the bucket
+// appended, and returns just the origin the S3 client expects.
+export function normalizeEndpoint(value?: string) {
+  const raw = clean(value);
+  if (!raw) return undefined;
+  try {
+    return new URL(/^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+const bucket = clean(process.env.S3_BUCKET)!;
+const normalizedEndpoint = normalizeEndpoint(process.env.S3_ENDPOINT);
+// null = S3_ENDPOINT is set but unusable. Reported on upload instead of crashing every page.
+const endpointInvalid = normalizedEndpoint === null;
+const endpoint = normalizedEndpoint ?? undefined;
+const accessKeyId = clean(process.env.S3_ACCESS_KEY_ID);
 const s3 = new S3Client({
-  endpoint: process.env.S3_ENDPOINT || undefined,
-  region: process.env.S3_REGION || "us-east-1",
-  forcePathStyle: Boolean(process.env.S3_ENDPOINT),
-  credentials: process.env.S3_ACCESS_KEY_ID
+  endpoint,
+  region: clean(process.env.S3_REGION) || "us-east-1",
+  forcePathStyle: Boolean(endpoint),
+  credentials: accessKeyId
     ? {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+        accessKeyId,
+        secretAccessKey: clean(process.env.S3_SECRET_ACCESS_KEY)!,
       }
     : undefined,
 });
@@ -34,6 +54,8 @@ export function validateUpload(type: string, size: number) {
 }
 
 export async function signUpload(clientId: string, name: string, type: string, size: number) {
+  if (endpointInvalid) throw new Error("STORAGE_ENDPOINT_INVALID");
+  if (!bucket || !accessKeyId) throw new Error("STORAGE_NOT_CONFIGURED");
   validateUpload(type, size);
   const ext = name.includes(".")
     ? name.slice(name.lastIndexOf(".")).replace(/[^.a-z0-9]/gi, "").slice(0, 10)
