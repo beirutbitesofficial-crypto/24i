@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { SettingsForm } from "@/components/settings-form";
 import { SocialPublishingSettings } from "@/components/social-publishing-settings";
 import { bufferConfigured } from "@/lib/buffer";
+import { FactoryReset } from "@/components/factory-reset";
 
 export default async function SettingsPage() {
   const user = await requirePageUser();
@@ -15,5 +16,5 @@ export default async function SettingsPage() {
     db.socialChannel.findMany({ where: { provider: "BUFFER" }, select: { id: true, clientId: true, channelId: true, service: true, name: true, autoPublish: true }, orderBy: { service: "asc" } }),
   ]);
   const value = (row?.value || { companyName: "24i Production", currency: "USD", timezone: "Asia/Beirut", defaultLanguage: "EN" }) as { companyName: string; currency: "USD"; timezone: string; defaultLanguage: "EN" | "AR" };
-  return <AppShell user={user} title="Settings" kicker="CONFIGURATION"><div className="management-stack"><SettingsForm initial={value} ar={user.language === "AR"}/><SocialPublishingSettings clients={clients} initialMappings={socialChannels} configured={bufferConfigured()} ar={user.language === "AR"}/></div></AppShell>;
+  return <AppShell user={user} title="Settings" kicker="CONFIGURATION"><div className="management-stack"><SettingsForm initial={value} ar={user.language === "AR"}/><SocialPublishingSettings clients={clients} initialMappings={socialChannels} configured={bufferConfigured()} ar={user.language === "AR"}/>{user.role.key === "ADMIN" && <FactoryReset ar={user.language === "AR"} />}</div></AppShell>;
 }

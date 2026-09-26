@@ -94,6 +94,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .secondary:hover { background: var(--surface-hover); color: var(--ink); }
 .danger { background: var(--danger); color: #fff; }
 .danger:hover { background: #991b1b; }
+.danger-zone { border-color: var(--danger-line); }
+.danger-zone .eyebrow { color: var(--danger); }
 .small-button { padding: 5px 10px; font-size: 13px; }
 .pill { border-radius: 999px; padding: 6px 12px; font-size: 13px; }
 .icon-button { background: transparent; color: inherit; border: 0; box-shadow: none; padding: 8px; border-radius: var(--radius-sm); }
