@@ -89,7 +89,9 @@ export async function signPreview(key: string, mimeType: string) {
       ResponseContentType: mimeType,
       ResponseContentDisposition: "inline",
     }),
-    { expiresIn: 120 }
+    // Long enough for slow video players (e.g. iPhone Safari fetching an MP4 in many byte ranges),
+    // which keep reusing the signed URL after the redirect.
+    { expiresIn: 3600 }
   );
 }
 

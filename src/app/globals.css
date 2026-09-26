@@ -304,6 +304,7 @@ td.title-cell { min-width: 200px; }
 .approval-line > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .approval-line small { color: var(--muted); }
 .approval-line p { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; }
+.media-fallback { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--brand-ink); }
 .caption-preview { white-space: pre-wrap; font-size: 15px; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
 .kv dt { color: var(--muted); }
