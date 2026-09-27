@@ -2,6 +2,7 @@ import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize } from "@/lib/auth";
+import { scriptTeamRecipients } from "@/lib/script-team";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications";
 
@@ -32,6 +33,23 @@ async function handlePATCH(req: Request, { params }: { params: Promise<{ id: str
   if (parsed.data.action === "RESEND") {
     if (!parsed.data.title || !parsed.data.body) {
       return NextResponse.json({ error: "Title and script body are required" }, { status: 400 });
+    }
+
+    const reader = await authorize("content.read", script.clientId);
+    if (reader.role.key === "CLIENT") {
+      // Clients may edit scripts they wrote themselves; the team is told about the new version.
+      if (script.ownerId !== reader.id) return NextResponse.json({ error: "You can only edit scripts you wrote" }, { status: 403 });
+      const latest = script.captions[0]?.version || 0;
+      await db.$transaction(async (tx) => {
+        await tx.captionVersion.create({ data: { contentId: script.id, version: latest + 1, caption: parsed.data.body!, createdById: reader.id } });
+        await tx.contentItem.update({ where: { id: script.id }, data: { title: parsed.data.title! } });
+        await tx.auditLog.create({ data: { userId: reader.id, action: "SCRIPT_EDITED_BY_CLIENT", entityType: "ContentItem", entityId: script.id, newValue: { title: parsed.data.title!, version: latest + 1 } } });
+      });
+      const recipients = await scriptTeamRecipients(script.clientId, reader.id);
+      if (recipients.length) {
+        await notify(recipients, { kind: "TASK", title: "Client updated a script", body: `${script.client.brandName} updated “${parsed.data.title}”.`, deepLink: `/scripts#${script.id}` });
+      }
+      return NextResponse.json({ ok: true });
     }
 
     const user = await authorize("content.write", script.clientId);
@@ -134,30 +152,10 @@ async function handlePATCH(req: Request, { params }: { params: Promise<{ id: str
     });
   });
 
-  let socialManagers = await db.user.findMany({
-    where: {
-      status: "ACTIVE",
-      role: { key: "SOCIAL_MEDIA_MANAGER" },
-      clientUsers: { some: { clientId: script.clientId } },
-    },
-    select: { id: true },
-  });
-  if (!socialManagers.length) {
-    socialManagers = await db.user.findMany({
-      where: { status: "ACTIVE", role: { key: "SOCIAL_MEDIA_MANAGER" } },
-      select: { id: true },
-    });
-  }
-  const managers = await db.user.findMany({
-    where: { status: "ACTIVE", role: { key: "MANAGER" } },
-    select: { id: true },
-  });
-
   const recipients = [...new Set([
     script.ownerId,
     script.captions[0].createdById,
-    ...socialManagers.map((manager) => manager.id),
-    ...managers.map((manager) => manager.id),
+    ...(await scriptTeamRecipients(script.clientId, user.id)),
   ].filter((recipientId): recipientId is string => !!recipientId && recipientId !== user.id))];
 
   if (recipients.length) {

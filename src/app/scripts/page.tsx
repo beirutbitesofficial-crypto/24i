@@ -29,10 +29,13 @@ export default async function ScriptsPage() {
       orderBy: { updatedAt: "desc" },
       take: 100,
     }),
-    canWrite
-      ? db.client.findMany({ select: { id: true, brandName: true }, orderBy: { brandName: "asc" } })
+    canWrite || isClient
+      ? db.client.findMany({ where: ids ? { id: { in: ids } } : {}, select: { id: true, brandName: true }, orderBy: { brandName: "asc" } })
       : Promise.resolve([]),
   ]);
+
+  const ownerIds = [...new Set(rows.map((r) => r.ownerId).filter((id): id is string => !!id))];
+  const owners = new Map((await db.user.findMany({ where: { id: { in: ownerIds } }, select: { id: true, name: true, role: { select: { key: true } } } })).map((u) => [u.id, u]));
 
   const scripts = rows.map((row) => ({
     id: row.id,
@@ -45,6 +48,9 @@ export default async function ScriptsPage() {
     version: row.captions[0]?.version || 0,
     decisionNote: row.status === "REVISION_REQUESTED" ? (row.approvals[0]?.notes[0]?.body || null) : null,
     updatedAt: row.updatedAt.toISOString(),
+    byClient: owners.get(row.ownerId || "")?.role.key === "CLIENT",
+    authorName: owners.get(row.ownerId || "")?.name || null,
+    mine: row.ownerId === user.id,
   }));
 
   return <AppShell user={user} title="Scripts" kicker="APPROVALS">

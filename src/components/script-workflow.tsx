@@ -14,6 +14,9 @@ type ScriptRow = {
   version: number;
   decisionNote?: string | null;
   updatedAt: string;
+  byClient: boolean;
+  authorName: string | null;
+  mine: boolean;
 };
 
 type Props = {
@@ -37,6 +40,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [revisionOpen, setRevisionOpen] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, { title: string; body: string }>>(
     Object.fromEntries(scripts.map((script) => [script.id, { title: script.title, body: script.body }]))
@@ -59,7 +63,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
         }),
       });
       await parseResponse(response);
-      setMessage(ar ? "تم إرسال السكربت للعميل للموافقة." : "Script sent to the client for approval.");
+      setMessage(isClient ? (ar ? "تم إرسال السكربت للفريق." : "Script sent to the team.") : (ar ? "تم إرسال السكربت للعميل للموافقة." : "Script sent to the client for approval."));
       form.reset();
       window.location.reload();
     } catch (error) {
@@ -109,7 +113,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
         body: JSON.stringify({ action: "RESEND", title: draft.title, body: draft.body }),
       });
       await parseResponse(response);
-      setMessage(ar ? "تم تعديل السكربت وإرساله من جديد للعميل." : "Script revised and resent to the client.");
+      setMessage(isClient ? (ar ? "تم حفظ التعديلات وإبلاغ الفريق." : "Changes saved and the team was notified.") : (ar ? "تم تعديل السكربت وإرساله من جديد للعميل." : "Script revised and resent to the client."));
       window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : (ar ? "تعذّر إعادة إرسال السكربت." : "Could not resend script."));
@@ -136,6 +140,20 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
       </form>
     </section>}
 
+    {isClient && clients.length > 0 && <section className="panel">
+      <span className="eyebrow">{ar ? "سكربت جديد" : "NEW SCRIPT"}</span>
+      <h2>{ar ? "اكتب سكربت وأرسله للفريق" : "Write a script for the team"}</h2>
+      <p className="muted">{ar ? "عندك فكرة أو سكربت جاهز؟ اكتبه هون وبيوصل للفريق مباشرة." : "Have an idea or a ready script? Write it here and it goes straight to the team."}</p>
+      <form className="compact-form" onSubmit={createScript}>
+        {clients.length > 1
+          ? <label>{ar ? "الشركة" : "Company"}<select name="clientId" required>{clients.map((client) => <option key={client.id} value={client.id}>{client.brandName}</option>)}</select></label>
+          : <input type="hidden" name="clientId" value={clients[0].id} />}
+        <label>{ar ? "عنوان السكربت" : "Script title"}<input name="title" required placeholder={ar ? "مثلاً: Reel 1 - نصائح الصيف" : "e.g. Reel 1 - Summer tips"} /></label>
+        <label>{ar ? "السكربت" : "Script"}<textarea name="body" rows={10} required placeholder={ar ? "اكتب السكربت أو الفكرة هون…" : "Write the script or idea here…"} /></label>
+        <button disabled={busyId === "new"}>{busyId === "new" ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال للفريق" : "Send to the team")}</button>
+      </form>
+    </section>}
+
     {scripts.map((script) => {
       const waiting = script.status === "WAITING_CLIENT_APPROVAL";
       const revision = script.status === "REVISION_REQUESTED";
@@ -148,10 +166,22 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
             <span className="eyebrow">{isClient ? script.clientName : `${script.clientName} · SCRIPT V${script.version}`}</span>
             <h2>{script.title}</h2>
           </div>
-          <span className="muted">{approved ? (ar ? "موافق عليه" : "Approved") : revision ? (ar ? "مطلوب تعديل" : "Revision requested") : (ar ? "بانتظار العميل" : "Waiting for client")}</span>
+          {script.byClient
+            ? <span className="badge badge-accent">{script.mine ? (ar ? "كتبته أنت" : "Written by you") : `${ar ? "من العميل" : "From client"}${script.authorName ? ` · ${script.authorName}` : ""}`}</span>
+            : <span className="muted">{approved ? (ar ? "موافق عليه" : "Approved") : revision ? (ar ? "مطلوب تعديل" : "Revision requested") : (ar ? "بانتظار العميل" : "Waiting for client")}</span>}
         </div>
 
-        {!revision || isClient ? <div className="client-caption-preview"><p>{script.body}</p></div> : null}
+        {isClient && script.mine && editing === script.id
+          ? <div className="compact-form">
+              <label>{ar ? "العنوان" : "Title"}<input value={draft.title} onChange={(event) => setDrafts((current) => ({ ...current, [script.id]: { ...draft, title: event.target.value } }))} /></label>
+              <label>{ar ? "السكربت" : "Script"}<textarea rows={10} value={draft.body} onChange={(event) => setDrafts((current) => ({ ...current, [script.id]: { ...draft, body: event.target.value } }))} /></label>
+              <div className="review-actions">
+                <button type="button" className="secondary" onClick={() => setEditing(null)}>{ar ? "إلغاء" : "Cancel"}</button>
+                <button type="button" disabled={busyId === script.id} onClick={() => void resend(script.id)}>{busyId === script.id ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ التعديلات" : "Save changes")}</button>
+              </div>
+            </div>
+          : (!revision || isClient) && <div className="client-caption-preview"><p>{script.body}</p></div>}
+        {isClient && script.mine && editing !== script.id && <div className="review-actions"><button type="button" className="secondary" onClick={() => setEditing(script.id)}>{ar ? "تعديل" : "Edit"}</button></div>}
 
         {script.decisionNote && <div className="feedback-box revision-feedback"><b>{ar ? "ملاحظات العميل" : "Client notes"}</b><p>{script.decisionNote}</p></div>}
 
