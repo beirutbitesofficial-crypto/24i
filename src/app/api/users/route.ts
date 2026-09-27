@@ -1,7 +1,8 @@
 import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authorize, hashPassword } from "@/lib/auth";
+import { authorize, hashPassword, hasPermission } from "@/lib/auth";
+import { assignClientPackage, BillingError } from "@/lib/client-billing";
 import { db } from "@/lib/db";
 import { checkClients } from "@/lib/scope";
 
@@ -13,6 +14,8 @@ const createSchema = z.object({
   roleKey: z.enum(roleKeys),
   clientIds: z.array(z.string()).default([]),
   clientBrandName: z.string().trim().max(160).optional(),
+  packageId: z.string().optional(),
+  paid: z.boolean().default(false),
 });
 
 async function handleGET() {
@@ -49,6 +52,11 @@ async function handlePOST(req: Request) {
     return NextResponse.json({ error: "Only Admin can create another Admin" }, { status: 403 });
   }
 
+  const billing = data.roleKey === "CLIENT" && data.packageId;
+  if (billing && !(hasPermission(actor, "packages.write") && hasPermission(actor, "finance.invoices.write") && (!data.paid || hasPermission(actor, "finance.payments.write")))) {
+    return NextResponse.json({ error: "You are not allowed to set packages or payments" }, { status: 403 });
+  }
+
   const invalidClients = await checkClients(data.clientIds);
   if (invalidClients) return NextResponse.json({ error: invalidClients }, { status: 400 });
 
@@ -60,7 +68,9 @@ async function handlePOST(req: Request) {
   if (exists) return NextResponse.json({ error: "Email already exists" }, { status: 409 });
 
   const passwordHash = await hashPassword(data.password);
-  const user = await db.$transaction(async (tx) => {
+  let user;
+  try {
+  user = await db.$transaction(async (tx) => {
     let clientIds = [...new Set(data.clientIds)];
 
     // A CLIENT login must always point to a real Client record. If the admin
@@ -90,6 +100,7 @@ async function handlePOST(req: Request) {
       },
       include: { role: true, clientUsers: { include: { client: true } } },
     });
+    if (billing) await assignClientPackage(tx, { clientId: clientIds[0], packageId: data.packageId!, paid: data.paid, actorId: actor.id });
     await tx.auditLog.create({
       data: {
         userId: actor.id,
@@ -101,6 +112,10 @@ async function handlePOST(req: Request) {
     });
     return created;
   });
+  } catch (error) {
+    if (error instanceof BillingError) return NextResponse.json({ error: error.message }, { status: error.status });
+    throw error;
+  }
 
   return NextResponse.json({
     id: user.id,

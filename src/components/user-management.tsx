@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Notice } from "@/components/ui";
+import { PackageFields, readPackageFields, type PackageOption } from "@/components/client-billing";
 
 type ClientOption = { id: string; brandName: string };
 type RoleOption = { key: string; name: string; permissions: string[] };
@@ -22,6 +23,8 @@ type Props = {
   clients: ClientOption[];
   initialRoles: RoleOption[];
   actorRole: string;
+  packages: PackageOption[];
+  canBill: boolean;
 };
 
 const permissionGroups = [
@@ -44,7 +47,9 @@ async function api(url: string, init?: RequestInit) {
   return data;
 }
 
-export function UserManagement({ initialUsers, clients, initialRoles, actorRole }: Props) {
+export function UserManagement({ initialUsers, clients, initialRoles, actorRole, packages, canBill }: Props) {
+  const creatableRoles = initialRoles.filter((r) => actorRole === "ADMIN" || r.key !== "ADMIN");
+  const [newRole, setNewRole] = useState(creatableRoles[0]?.key || "");
   const [users] = useState(initialUsers);
   const [roles, setRoles] = useState(initialRoles);
   const [selectedId, setSelectedId] = useState(initialUsers[0]?.id || "");
@@ -74,6 +79,7 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole 
           password: form.get("password"),
           roleKey: form.get("roleKey"),
           clientIds: form.getAll("clientIds"),
+          ...(newRole === "CLIENT" ? { clientBrandName: form.get("clientBrandName") || undefined, ...readPackageFields(form) } : {}),
         }),
       });
       setMessage("User created successfully.");
@@ -133,8 +139,12 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole 
         <label>Name<input name="name" required minLength={2} /></label>
         <label>Email<input name="email" type="email" required /></label>
         <label>Temporary password<input name="password" type="password" required minLength={8} /></label>
-        <label>Role<select name="roleKey" required>{roles.filter((r) => actorRole === "ADMIN" || r.key !== "ADMIN").map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}</select></label>
-        <fieldset className="client-checks"><legend>Client access / assignments</legend>{clients.length ? clients.map((c) => <label className="check" key={c.id}><input type="checkbox" name="clientIds" value={c.id} />{c.brandName}</label>) : <span className="muted">No clients yet.</span>}</fieldset>
+        <label>Role<select name="roleKey" required value={newRole} onChange={(e) => setNewRole(e.target.value)}>{creatableRoles.map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}</select></label>
+        {newRole === "CLIENT" && <>
+          <label>Company / brand name<input name="clientBrandName" placeholder="Leave empty to use the name" /></label>
+          {canBill && <PackageFields packages={packages} />}
+        </>}
+        <fieldset className="client-checks"><legend>{newRole === "CLIENT" ? "Existing company (leave empty to create a new one)" : "Client access / assignments"}</legend>{clients.length ? clients.map((c) => <label className="check" key={c.id}><input type="checkbox" name="clientIds" value={c.id} />{c.brandName}</label>) : <span className="muted">No clients yet.</span>}</fieldset>
         <button disabled={busy}>Create user</button>
       </form>
     </section>

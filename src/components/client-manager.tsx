@@ -2,8 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { CreatePanel, Notice } from "@/components/ui";
+import { PackageFields, readPackageFields, type PackageOption } from "@/components/client-billing";
 
-export function ClientManager() {
+export function ClientManager({ packages, canBill }: { packages: PackageOption[]; canBill: boolean }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -21,6 +22,7 @@ export function ClientManager() {
       instagram: form.get("instagram") || undefined,
       status: form.get("status"),
       notes: form.get("notes") || undefined,
+      ...(canBill ? readPackageFields(form) : {}),
     };
     try {
       const res = await fetch("/api/clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -42,6 +44,7 @@ export function ClientManager() {
     <label>Website<input name="website" /></label>
     <label>Instagram<input name="instagram" /></label>
     <label>Status<select name="status" defaultValue="LEAD"><option value="LEAD">Lead</option><option value="ACTIVE">Active</option><option value="PAUSED">Paused</option><option value="PENDING_PAYMENT">Pending payment</option><option value="CONTRACT_ENDING">Contract ending</option><option value="INACTIVE">Inactive</option></select></label>
+    {canBill && <PackageFields packages={packages} />}
     <label className="full-field">Notes<textarea name="notes" rows={3} /></label>
     <button disabled={busy}>{busy ? "Creating…" : "Create client"}</button>
   </form></CreatePanel>;

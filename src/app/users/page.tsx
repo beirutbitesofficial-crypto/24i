@@ -3,23 +3,28 @@ import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { UserManagement } from "@/components/user-management";
+import { packageOptions } from "@/lib/client-billing";
 
 export default async function UsersPage() {
   const actor = await requirePageUser();
   if (!hasPermission(actor, "users.read")) redirect("/");
 
-  const [users, clients, roles] = await Promise.all([
+  const canBill = hasPermission(actor, "packages.write") && hasPermission(actor, "finance.invoices.write");
+  const [users, clients, roles, packages] = await Promise.all([
     db.user.findMany({
       include: { role: true, clientUsers: { include: { client: true } } },
       orderBy: [{ status: "asc" }, { name: "asc" }],
     }),
     db.client.findMany({ select: { id: true, brandName: true }, orderBy: { brandName: "asc" } }),
     db.role.findMany({ include: { permissions: true }, orderBy: { name: "asc" } }),
+    canBill ? packageOptions() : Promise.resolve([]),
   ]);
 
   return <AppShell user={actor} title="User management" kicker="ACCESS CONTROL">
     <UserManagement
       actorRole={actor.role.key}
+      packages={packages}
+      canBill={canBill}
       clients={clients}
       initialUsers={users.map((u) => ({
         id: u.id,
