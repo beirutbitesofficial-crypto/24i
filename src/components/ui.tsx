@@ -54,6 +54,8 @@ const paths: Record<string, string> = {
   script: "M8 3h9l3 3v15H8zM4 7v14h12M11 9h6M11 13h6M11 17h4",
   camera: "M3 8h4l2-3h6l2 3h4v12H3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
   menu: "M4 6h16M4 12h16M4 18h16",
+  chat: "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z",
+  send: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
 };
 
 export function Icon({ name, size = 18 }: { name: keyof typeof paths | string; size?: number }) {

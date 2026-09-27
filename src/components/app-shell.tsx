@@ -7,6 +7,7 @@ import { ArabicUi } from "@/components/arabic-ui";
 import { RouteMotion } from "@/components/route-motion";
 import { NavLinks, type NavItem } from "@/components/nav-links";
 import { initials } from "@/components/ui";
+import { ChatFab } from "@/components/chat-fab";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type Item = NavItem & { permission?: string; hideForClient?: boolean; roles?: string[] };
@@ -14,6 +15,7 @@ type Item = NavItem & { permission?: string; hideForClient?: boolean; roles?: st
 const arTitles: Record<string, string> = {
   Dashboard: "لوحة التحكم",
   Notifications: "الإشعارات",
+  Messages: "الرسائل",
   Users: "المستخدمون",
   Clients: "العملاء",
   Projects: "المشاريع",
@@ -66,7 +68,8 @@ const arRoles: Record<string, string> = {
   CLIENT: "عميل",
 };
 
-const WORKSPACE = ["/", "/tasks", "/content", "/scripts", "/shooting", "/calendar", "/notifications"];
+const WORKSPACE = ["/", "/tasks", "/content", "/scripts", "/shooting", "/calendar", "/chat", "/notifications"];
+const CHAT_ROLES = ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"];
 
 export function AppShell({ user, title, kicker, actions, children }: { user: ShellUser; title: string; kicker: string; actions?: React.ReactNode; children: React.ReactNode }) {
   const permissions = new Set(user.role.permissions.map((p) => p.permission));
@@ -81,6 +84,7 @@ export function AppShell({ user, title, kicker, actions, children }: { user: She
     { href: "/scripts", icon: "script", label: ar ? "السكربتات" : "Scripts", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "CLIENT"] },
     { href: "/shooting", icon: "camera", label: ar ? "أيام التصوير" : "Shooting days", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"] },
     { href: "/calendar", icon: "calendar", label: ar ? "التقويم" : "Calendar", permission: "calendar.read" },
+    { href: "/chat", icon: "chat", label: ar ? "الرسائل" : "Messages", roles: CHAT_ROLES },
     { href: "/notifications", icon: "bell", label: ar ? "الإشعارات" : "Notifications", permission: "notifications.read" },
     { href: "/clients", icon: "briefcase", label: ar ? (client ? "شركتي" : "العملاء") : (client ? "My company" : "Clients"), permission: "clients.read" },
     { href: "/projects", icon: "folder", label: ar ? "المشاريع" : "Projects", permission: "projects.read" },
@@ -122,6 +126,7 @@ export function AppShell({ user, title, kicker, actions, children }: { user: She
       </header>
       <main className="workspace"><RouteMotion>{children}</RouteMotion></main>
     </div>
+    {CHAT_ROLES.includes(user.role.key) && <ChatFab label={ar ? "الرسائل" : "Messages"} />}
     {ar && <ArabicUi />}
   </div>;
 }
