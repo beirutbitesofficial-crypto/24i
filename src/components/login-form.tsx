@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 export function LoginForm() {
@@ -57,7 +56,7 @@ export function LoginForm() {
       </label>
       {error && <p role="alert">{error}</p>}
       <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-      <p className="muted">New client? <Link href="/signup">Create an account</Link></p>
+      <p className="muted">Need an account? Ask your 24i account manager.</p>
     </form>
   );
 }
