@@ -36,6 +36,36 @@ async function parseResponse(response: Response) {
   return data;
 }
 
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Older browsers / non-secure contexts: fall back to a temporary textarea.
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  }
+}
+
+function CopyButton({ text, ar }: { text: string; ar: boolean }) {
+  const [state, setState] = useState<"idle" | "done" | "failed">("idle");
+  async function copy() {
+    setState((await copyText(text)) ? "done" : "failed");
+    setTimeout(() => setState("idle"), 2000);
+  }
+  return <button type="button" className={`secondary copy-script${state === "done" ? " copied" : ""}`} onClick={() => void copy()}>
+    {state === "done" ? (ar ? "✓ تم النسخ" : "✓ Copied") : state === "failed" ? (ar ? "تعذّر النسخ" : "Copy failed") : (ar ? "نسخ السكربت" : "Copy script")}
+  </button>;
+}
+
 export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = false }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -166,9 +196,12 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
             <span className="eyebrow">{isClient ? script.clientName : `${script.clientName} · SCRIPT V${script.version}`}</span>
             <h2>{script.title}</h2>
           </div>
+          <div className="script-head-actions">
+          {!isClient && script.body && <CopyButton text={script.body} ar={ar} />}
           {script.byClient
             ? <span className="badge badge-accent">{script.mine ? (ar ? "كتبته أنت" : "Written by you") : `${ar ? "من العميل" : "From client"}${script.authorName ? ` · ${script.authorName}` : ""}`}</span>
             : <span className="muted">{approved ? (ar ? "موافق عليه" : "Approved") : revision ? (ar ? "مطلوب تعديل" : "Revision requested") : (ar ? "بانتظار العميل" : "Waiting for client")}</span>}
+          </div>
         </div>
 
         {isClient && script.mine && editing === script.id
@@ -180,7 +213,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
                 <button type="button" disabled={busyId === script.id} onClick={() => void resend(script.id)}>{busyId === script.id ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ التعديلات" : "Save changes")}</button>
               </div>
             </div>
-          : (!revision || isClient) && <div className="client-caption-preview"><p>{script.body}</p></div>}
+          : (!revision || !canWrite) && <div className="client-caption-preview"><p>{script.body}</p></div>}
         {isClient && script.mine && editing !== script.id && <div className="review-actions"><button type="button" className="secondary" onClick={() => setEditing(script.id)}>{ar ? "تعديل" : "Edit"}</button></div>}
 
         {script.decisionNote && <div className="feedback-box revision-feedback"><b>{ar ? "ملاحظات العميل" : "Client notes"}</b><p>{script.decisionNote}</p></div>}
@@ -199,7 +232,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
           </div>}
         </>}
 
-        {!isClient && revision && <div className="compact-form">
+        {canWrite && revision && <div className="compact-form">
           <label>{ar ? "العنوان المعدّل" : "Updated title"}<input value={draft.title} onChange={(event) => setDrafts((current) => ({ ...current, [script.id]: { ...draft, title: event.target.value } }))} /></label>
           <label>{ar ? "السكربت المعدّل" : "Revised script"}<textarea rows={12} value={draft.body} onChange={(event) => setDrafts((current) => ({ ...current, [script.id]: { ...draft, body: event.target.value } }))} /></label>
           <button type="button" disabled={busyId === script.id} onClick={() => void resend(script.id)}>{busyId === script.id ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "حفظ وإعادة الإرسال للعميل" : "Save & resend to client")}</button>

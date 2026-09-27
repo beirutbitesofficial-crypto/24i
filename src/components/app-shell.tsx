@@ -81,7 +81,7 @@ export function AppShell({ user, title, kicker, actions, children }: { user: She
     { href: "/", icon: "dashboard", label: ar ? "الرئيسية" : "Home", permission: "dashboard.read" },
     { href: "/tasks", icon: "check", label: ar ? "المهام" : "Tasks", permission: "tasks.read" },
     { href: "/content", icon: "image", label: ar ? "المحتوى" : "Content", permission: "content.read" },
-    { href: "/scripts", icon: "script", label: ar ? "السكربتات" : "Scripts", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "CLIENT"] },
+    { href: "/scripts", icon: "script", label: ar ? "السكربتات" : "Scripts", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"] },
     { href: "/shooting", icon: "camera", label: ar ? "أيام التصوير" : "Shooting days", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"] },
     { href: "/calendar", icon: "calendar", label: ar ? "التقويم" : "Calendar", permission: "calendar.read" },
     { href: "/chat", icon: "chat", label: ar ? "الرسائل" : "Messages", roles: CHAT_ROLES },

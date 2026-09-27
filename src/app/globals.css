@@ -462,3 +462,8 @@ main > div > .chat-thread, .workspace > .chat-thread { height: calc(100dvh - 170
 .billing-actions { display: flex; gap: 8px; }
 .billing-actions button { padding: 6px 12px; min-height: 0; font-size: 13px; }
 .billing-actions .ghost { background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+
+/* Scripts */
+.script-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.copy-script { padding: 6px 14px; min-height: 0; font-size: 13px; white-space: nowrap; }
+.copy-script.copied { color: var(--success); border-color: var(--success-line); background: var(--success-bg); }
