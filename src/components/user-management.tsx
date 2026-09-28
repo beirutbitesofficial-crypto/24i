@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Notice } from "@/components/ui";
-import { PackageFields, readPackageFields, type PackageOption } from "@/components/client-billing";
+import { PackageCell, PackageFields, PaymentCell, readPackageFields, type BillingSummary, type PackageOption } from "@/components/client-billing";
 
 type ClientOption = { id: string; brandName: string };
 type RoleOption = { key: string; name: string; permissions: string[] };
@@ -25,6 +25,8 @@ type Props = {
   actorRole: string;
   packages: PackageOption[];
   canBill: boolean;
+  canPay: boolean;
+  billing: Record<string, BillingSummary>;
 };
 
 const permissionGroups = [
@@ -47,7 +49,7 @@ async function api(url: string, init?: RequestInit) {
   return data;
 }
 
-export function UserManagement({ initialUsers, clients, initialRoles, actorRole, packages, canBill }: Props) {
+export function UserManagement({ initialUsers, clients, initialRoles, actorRole, packages, canBill, canPay, billing }: Props) {
   const creatableRoles = initialRoles.filter((r) => actorRole === "ADMIN" || r.key !== "ADMIN");
   const [newRole, setNewRole] = useState(creatableRoles[0]?.key || "");
   const [users] = useState(initialUsers);
@@ -157,7 +159,8 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole,
             <span><b>{u.name}</b><small>{u.email}</small></span><span><em>{u.roleName}</em><small className={`status ${u.status.toLowerCase()}`}>{u.status}</small></span>
           </button>)}
         </div>
-        {selected && <form ref={editorRef} key={selected.id} onSubmit={updateUser} className="user-editor">
+        {selected && <div className="user-editor-col">
+        <form ref={editorRef} key={selected.id} onSubmit={updateUser} className="user-editor">
           <h3>Edit {selected.name}</h3>
           <label>Name<input name="name" defaultValue={selected.name} required /></label>
           <label>Role<select name="roleKey" defaultValue={selected.roleKey} disabled={!selected.canEdit}>{roles.filter((r) => actorRole === "ADMIN" || r.key !== "ADMIN").map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}</select></label>
@@ -166,7 +169,15 @@ export function UserManagement({ initialUsers, clients, initialRoles, actorRole,
           <fieldset className="client-checks"><legend>Assigned clients</legend>{clients.map((c) => <label className="check" key={c.id}><input type="checkbox" name="clientIds" value={c.id} defaultChecked={selected.clients.some((x) => x.id === c.id)} disabled={!selected.canEdit} />{c.brandName}</label>)}</fieldset>
           <div className="meta-line"><span>Last login</span><b>{selected.lastLoginAt ? new Date(selected.lastLoginAt).toLocaleString() : "Never"}</b></div>
           <button disabled={busy || !selected.canEdit}>Save user</button>
-        </form>}
+        </form>
+        {selected.roleKey === "CLIENT" && (canBill || canPay) && selected.clients.map((c) => <div className="user-billing" key={c.id}>
+          <span className="eyebrow">Package & payment · {c.brandName}</span>
+          <div className="user-billing-grid">
+            <PackageCell clientId={c.id} summary={billing[c.id]} packages={packages} canEdit={canBill} />
+            <PaymentCell clientId={c.id} summary={billing[c.id]} canPay={canPay} />
+          </div>
+        </div>)}
+        </div>}
       </div>
     </section>
 

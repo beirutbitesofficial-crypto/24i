@@ -2,7 +2,7 @@ import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, assignedClientIds, hasPermission } from "@/lib/auth";
-import { assignClientPackage, BillingError } from "@/lib/client-billing";
+import { assignClientPackage, billingInput, BillingError, wantsPackage } from "@/lib/client-billing";
 import { db } from "@/lib/db";
 
 const schema = z.object({
@@ -21,8 +21,7 @@ const schema = z.object({
   paymentDueDay: z.number().int().min(1).max(31).optional(),
   status: z.enum(["LEAD","ACTIVE","PAUSED","PENDING_PAYMENT","CONTRACT_ENDING","INACTIVE"]).default("LEAD"),
   notes: z.string().max(5000).optional(),
-  packageId: z.string().optional(),
-  paid: z.boolean().default(false),
+  billing: billingInput.optional(),
 });
 
 async function handleGET() {
@@ -36,15 +35,16 @@ async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const user = await authorize("clients.write");
-  const { packageId, paid, ...data } = parsed.data;
-  if (packageId && !(hasPermission(user, "packages.write") && hasPermission(user, "finance.invoices.write") && (!paid || hasPermission(user, "finance.payments.write")))) {
+  const { billing: rawBilling, ...data } = parsed.data;
+  const billing = rawBilling && wantsPackage(rawBilling) ? rawBilling : null;
+  if (billing && !(hasPermission(user, "packages.write") && hasPermission(user, "finance.invoices.write") && (billing.payment === "UNPAID" || hasPermission(user, "finance.payments.write")))) {
     return NextResponse.json({ error: "You are not allowed to set packages or payments" }, { status: 403 });
   }
   let row;
   try {
   row = await db.$transaction(async (tx) => {
     const client = await tx.client.create({ data });
-    if (packageId) await assignClientPackage(tx, { clientId: client.id, packageId, paid, actorId: user.id });
+    if (billing) await assignClientPackage(tx, { clientId: client.id, billing, actorId: user.id });
     await tx.auditLog.create({
       data: {
         userId: user.id,

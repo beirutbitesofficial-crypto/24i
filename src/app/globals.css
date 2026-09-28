@@ -467,3 +467,9 @@ main > div > .chat-thread, .workspace > .chat-thread { height: calc(100dvh - 170
 .script-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .copy-script { padding: 6px 14px; min-height: 0; font-size: 13px; white-space: nowrap; }
 .copy-script.copied { color: var(--success); border-color: var(--success-line); background: var(--success-bg); }
+.custom-package { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; grid-column: 1 / -1; }
+.billing-edit .custom-package { grid-template-columns: 1fr; }
+.user-editor-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.user-billing { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; background: var(--surface-2); }
+.user-billing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+@media (max-width: 760px) { .custom-package, .user-billing-grid { grid-template-columns: 1fr; } }

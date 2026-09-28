@@ -2,7 +2,7 @@ import { api } from "@/lib/http";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, hashPassword, hasPermission } from "@/lib/auth";
-import { assignClientPackage, BillingError } from "@/lib/client-billing";
+import { assignClientPackage, billingInput, BillingError, wantsPackage } from "@/lib/client-billing";
 import { db } from "@/lib/db";
 import { checkClients } from "@/lib/scope";
 
@@ -14,8 +14,7 @@ const createSchema = z.object({
   roleKey: z.enum(roleKeys),
   clientIds: z.array(z.string()).default([]),
   clientBrandName: z.string().trim().max(160).optional(),
-  packageId: z.string().optional(),
-  paid: z.boolean().default(false),
+  billing: billingInput.optional(),
 });
 
 async function handleGET() {
@@ -52,8 +51,8 @@ async function handlePOST(req: Request) {
     return NextResponse.json({ error: "Only Admin can create another Admin" }, { status: 403 });
   }
 
-  const billing = data.roleKey === "CLIENT" && data.packageId;
-  if (billing && !(hasPermission(actor, "packages.write") && hasPermission(actor, "finance.invoices.write") && (!data.paid || hasPermission(actor, "finance.payments.write")))) {
+  const billing = data.roleKey === "CLIENT" && data.billing && wantsPackage(data.billing) ? data.billing : null;
+  if (billing && !(hasPermission(actor, "packages.write") && hasPermission(actor, "finance.invoices.write") && (billing.payment === "UNPAID" || hasPermission(actor, "finance.payments.write")))) {
     return NextResponse.json({ error: "You are not allowed to set packages or payments" }, { status: 403 });
   }
 
@@ -100,7 +99,7 @@ async function handlePOST(req: Request) {
       },
       include: { role: true, clientUsers: { include: { client: true } } },
     });
-    if (billing) await assignClientPackage(tx, { clientId: clientIds[0], packageId: data.packageId!, paid: data.paid, actorId: actor.id });
+    if (billing) await assignClientPackage(tx, { clientId: clientIds[0], billing, actorId: actor.id });
     await tx.auditLog.create({
       data: {
         userId: actor.id,
