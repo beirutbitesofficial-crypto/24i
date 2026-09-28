@@ -3,7 +3,7 @@ import { z } from "zod";
 import { api } from "@/lib/http";
 import { AuthError, authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { AiError, generateScript } from "@/lib/ai";
+import { AiError, allowAi, generateScript } from "@/lib/ai";
 
 const schema = z.object({
   clientId: z.string().min(1),
@@ -18,25 +18,12 @@ const schema = z.object({
 
 const ROLES = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"]);
 
-// Simple per-user limit so a stuck button or a curious client cannot run up the OpenAI bill.
-const LIMIT = 40;
-const WINDOW_MS = 60 * 60 * 1000;
-const usage = new Map<string, number[]>();
-function allow(userId: string) {
-  const now = Date.now();
-  const recent = (usage.get(userId) || []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= LIMIT) return false;
-  recent.push(now);
-  usage.set(userId, recent);
-  return true;
-}
-
 async function handlePOST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid request" }, { status: 400 });
   const user = await authorize("content.read", parsed.data.clientId);
   if (!ROLES.has(user.role.key)) throw new AuthError(403);
-  if (!allow(user.id)) return NextResponse.json({ error: `You reached the limit of ${LIMIT} AI scripts per hour. Try again later.` }, { status: 429 });
+  if (!allowAi(user.id)) return NextResponse.json({ error: "You reached the hourly AI limit. Try again later." }, { status: 429 });
 
   const brand = await db.client.findUnique({ where: { id: parsed.data.clientId }, select: { brandName: true, industry: true, instagram: true, notes: true } });
   if (!brand) return NextResponse.json({ error: "Client not found" }, { status: 404 });

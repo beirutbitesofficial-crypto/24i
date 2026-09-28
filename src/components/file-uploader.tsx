@@ -6,7 +6,7 @@ import { storageUploadError } from "@/lib/upload-client";
 
 type ClientOption = { id: string; brandName: string };
 
-function putFileWithProgress(
+export function putFileWithProgress(
   url: string,
   file: File,
   mimeType: string,

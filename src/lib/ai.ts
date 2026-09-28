@@ -54,26 +54,32 @@ function prompt(r: ScriptRequest) {
   return { system, user };
 }
 
-export async function generateScript(r: ScriptRequest) {
+// Simple per-user limit so a stuck button or a curious user cannot run up the OpenAI bill.
+const usage = new Map<string, number[]>();
+export function allowAi(userId: string, limit = 60, windowMs = 60 * 60 * 1000) {
+  const now = Date.now();
+  const recent = (usage.get(userId) || []).filter((t) => now - t < windowMs);
+  if (recent.length >= limit) return false;
+  recent.push(now);
+  usage.set(userId, recent);
+  return true;
+}
+
+// Calls OpenAI Chat Completions and turns HTTP failures into readable AiErrors.
+export async function chatCompletion(body: Record<string, unknown>) {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new AiError("AI is not set up yet. Add OPENAI_API_KEY in the hosting environment variables.", 503);
   if (!/^[\x21-\x7e]+$/.test(key)) throw new AiError("OPENAI_API_KEY contains invalid characters. Copy the key again from platform.openai.com.", 503);
 
-  const { system, user } = prompt(r);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 45_000);
+  const timer = setTimeout(() => controller.abort(), 60_000);
   let res: Response;
   try {
     const base = (process.env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");
     res = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        temperature: 0.8,
-        max_tokens: 1200,
-      }),
+      body: JSON.stringify({ model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini", ...body }),
       signal: controller.signal,
     });
   } catch {
@@ -89,9 +95,18 @@ export async function generateScript(r: ScriptRequest) {
     if (res.status === 429) throw new AiError(/quota|billing/i.test(message) ? "The OpenAI account has no credit left. Add credit at platform.openai.com/settings/organization/billing." : "Too many AI requests right now. Wait a moment and try again.", 429);
     if (res.status === 404) throw new AiError("The AI model in OPENAI_MODEL was not found.", 503);
     console.error("OpenAI error", res.status, message);
-    throw new AiError("The AI could not write the script. Try again.");
+    throw new AiError("The AI could not answer. Try again.");
   }
+  return data;
+}
 
+export async function generateScript(r: ScriptRequest) {
+  const { system, user } = prompt(r);
+  const data = await chatCompletion({
+    messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    temperature: 0.8,
+    max_tokens: 1200,
+  });
   const text: string = data?.choices?.[0]?.message?.content?.trim() || "";
   if (!text) throw new AiError("The AI returned an empty answer. Try again.");
   const match = text.match(/^\s*TITLE:\s*(.+)\n+([\s\S]*)$/i);

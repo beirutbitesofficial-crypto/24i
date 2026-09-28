@@ -8,6 +8,8 @@ import { RouteMotion } from "@/components/route-motion";
 import { NavLinks, type NavItem } from "@/components/nav-links";
 import { initials } from "@/components/ui";
 import { ChatFab } from "@/components/chat-fab";
+import { AssistantPanel } from "@/components/assistant-panel";
+import { aiConfigured } from "@/lib/ai";
 
 type ShellUser = User & { role: Role & { permissions: { permission: string }[] } };
 type Item = NavItem & { permission?: string; hideForClient?: boolean; roles?: string[] };
@@ -126,6 +128,7 @@ export function AppShell({ user, title, kicker, actions, children }: { user: She
       </header>
       <main className="workspace"><RouteMotion>{children}</RouteMotion></main>
     </div>
+    {aiConfigured() && <AssistantPanel userId={user.id} ar={ar} canUpload={can("files.write")} />}
     {CHAT_ROLES.includes(user.role.key) && <ChatFab label={ar ? "الرسائل" : "Messages"} />}
     {ar && <ArabicUi />}
   </div>;
