@@ -3,7 +3,7 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui";
 
-type Message = { id: string; body: string; toRole: string | null; createdAt: string; author: { id: string; name: string; role: string; roleName: string } };
+type Message = { id: string; body: string; toRole: string | null; createdAt: string; author: { id: string; name: string; role: string; roleName: string }; pending?: boolean };
 
 const ROLES = [
   { value: "MANAGER", en: "Manager", ar: "المدير" },
@@ -11,9 +11,16 @@ const ROLES = [
   { value: "EDITOR", en: "Editor", ar: "المونتير" },
 ];
 
-const POLL_MS = 8000;
+const POLL_MS = 3000;
 
-export function ChatThread({ clientId, title, meId, isClient = false, ar = false, backHref }: { clientId: string; title: string; meId: string; isClient?: boolean; ar?: boolean; backHref?: string }) {
+function merge(current: Message[], incoming: Message[]) {
+  const byId = new Map(current.filter((m) => !m.pending).map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  const pending = current.filter((m) => m.pending);
+  return [...[...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), ...pending];
+}
+
+export function ChatThread({ clientId, title, meId, meName = "", meRole = "", isClient = false, ar = false, backHref }: { clientId: string; title: string; meId: string; meName?: string; meRole?: string; isClient?: boolean; ar?: boolean; backHref?: string }) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [text, setText] = useState("");
   const [toRole, setToRole] = useState("MANAGER");
@@ -22,22 +29,45 @@ export function ChatThread({ clientId, title, meId, isClient = false, ar = false
   const scroller = useRef<HTMLDivElement>(null);
   const lastId = useRef<string | undefined>(undefined);
 
-  const load = useCallback(async () => {
+  const latest = useRef<string | null>(null);
+  const loading = useRef(false);
+
+  const load = useCallback(async (full = false) => {
+    if (loading.current) return;
+    loading.current = true;
     try {
-      const res = await fetch(`/api/chat/${clientId}`, { cache: "no-store" });
+      const since = full ? null : latest.current;
+      const res = await fetch(`/api/chat/${clientId}${since ? `?after=${encodeURIComponent(since)}` : ""}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not load messages");
-      setMessages(data.messages);
-      window.dispatchEvent(new Event("chat:read"));
+      const incoming: Message[] = data.messages || [];
+      if (incoming.length) latest.current = incoming[incoming.length - 1].createdAt;
+      setMessages((current) => (since && current ? merge(current, incoming) : merge([], incoming).concat(current?.filter((m) => m.pending) || [])));
+      if (!since || incoming.length) window.dispatchEvent(new Event("chat:read"));
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load messages");
+    } finally {
+      loading.current = false;
     }
   }, [clientId]);
 
   useEffect(() => {
-    void load();
-    const timer = setInterval(() => { if (document.visibilityState === "visible") void load(); }, POLL_MS);
-    return () => clearInterval(timer);
+    latest.current = null;
+    void load(true);
+    const refresh = () => { if (document.visibilityState === "visible") void load(); };
+    const timer = setInterval(refresh, POLL_MS);
+    // A push notification means something new arrived: fetch it now instead of waiting.
+    const onWorkerMessage = (event: MessageEvent) => { if (event.data?.type === "push") void load(); };
+    navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(timer);
+      navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [load]);
 
   useEffect(() => {
@@ -51,13 +81,19 @@ export function ChatThread({ clientId, title, meId, isClient = false, ar = false
     const body = text.trim();
     if (!body || sending) return;
     setSending(true); setError("");
+    // Show the message right away; it is replaced by the saved one when the server answers.
+    const tempId = `tmp-${Date.now()}`;
+    const temp: Message = { id: tempId, body, toRole: isClient ? toRole : null, createdAt: new Date().toISOString(), author: { id: meId, name: meName, role: meRole, roleName: "" }, pending: true };
+    setMessages((current) => [...(current || []), temp]);
+    setText("");
     try {
       const res = await fetch(`/api/chat/${clientId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body, toRole: isClient ? toRole : undefined }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Message not sent");
-      setText("");
-      setMessages(data.messages);
+      setMessages((current) => merge((current || []).filter((m) => m.id !== tempId), [data.message]));
     } catch (err) {
+      setMessages((current) => (current || []).filter((m) => m.id !== tempId));
+      setText(body);
       setError(err instanceof Error ? err.message : "Message not sent");
     } finally {
       setSending(false);
@@ -87,12 +123,12 @@ export function ChatThread({ clientId, title, meId, isClient = false, ar = false
       {messages?.map((m) => {
         const mine = m.author.id === meId;
         const fromClient = m.author.role === "CLIENT";
-        return <div key={m.id} className={`bubble-row${mine ? " mine" : ""}`}>
+        return <div key={m.id} className={`bubble-row${mine ? " mine" : ""}${m.pending ? " pending" : ""}`}>
           <div className="bubble">
             {!mine && <span className="bubble-author">{m.author.name}{!fromClient && ` · ${m.author.roleName}`}</span>}
             {fromClient && m.toRole && <span className="bubble-to">{ar ? "إلى" : "To"}: {roleLabel(m.toRole)}</span>}
             <p>{m.body}</p>
-            <time dateTime={m.createdAt}>{time(m.createdAt)}</time>
+            <time dateTime={m.createdAt}>{m.pending ? (ar ? "جارٍ الإرسال…" : "Sending…") : time(m.createdAt)}</time>
           </div>
         </div>;
       })}

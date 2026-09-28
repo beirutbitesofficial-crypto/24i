@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { api } from "@/lib/http";
 import { AuthError, requireUser } from "@/lib/auth";
@@ -16,9 +16,9 @@ const schema = z.object({
 
 const ROLE_LABEL: Record<string, string> = { MANAGER: "Manager", SOCIAL_MEDIA_MANAGER: "Social media", EDITOR: "Editor" };
 
-async function thread(clientId: string) {
+async function thread(clientId: string, since?: Date) {
   const messages = await db.chatMessage.findMany({
-    where: { clientId },
+    where: { clientId, ...(since ? { createdAt: { gt: since } } : {}) },
     include: { author: { select: { id: true, name: true, role: { select: { key: true, name: true } } } } },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -37,15 +37,22 @@ async function markRead(userId: string, clientId: string) {
   await db.chatRead.upsert({ where: { userId_clientId: { userId, clientId } }, create: { userId, clientId, lastReadAt: now }, update: { lastReadAt: now } });
 }
 
-async function handleGET(_req: Request, { params }: Ctx) {
+async function handleGET(req: Request, { params }: Ctx) {
   const user = await requireUser();
   const { clientId } = await params;
   if (!canUseThread(user, clientId)) throw new AuthError(403);
   await ensureChatTables();
+  // ?after=<ISO time> returns only newer messages, so polling stays cheap.
+  const afterParam = new URL(req.url).searchParams.get("after");
+  const since = afterParam && !Number.isNaN(Date.parse(afterParam)) ? new Date(afterParam) : undefined;
+  if (since) {
+    const messages = await thread(clientId, since);
+    if (messages.length) await markRead(user.id, clientId);
+    return NextResponse.json({ messages, partial: true }, { headers: { "cache-control": "no-store" } });
+  }
   const client = await db.client.findUnique({ where: { id: clientId }, select: { id: true, brandName: true } });
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
-  const messages = await thread(clientId);
-  await markRead(user.id, clientId);
+  const [messages] = await Promise.all([thread(clientId), markRead(user.id, clientId)]);
   return NextResponse.json({ client, messages }, { headers: { "cache-control": "no-store" } });
 }
 
@@ -65,28 +72,36 @@ async function handlePOST(req: Request, { params }: Ctx) {
   const message = await db.chatMessage.create({
     data: { clientId, authorId: user.id, body: parsed.data.body, toRole: fromClient ? parsed.data.toRole : null },
   });
-  await markRead(user.id, clientId);
 
-  const preview = parsed.data.body.length > 140 ? `${parsed.data.body.slice(0, 137)}…` : parsed.data.body;
-  let recipients: string[];
-  let title: string;
-  if (fromClient) {
-    recipients = await chatRecipients(clientId, parsed.data.toRole!);
-    title = `💬 ${client.brandName} → ${ROLE_LABEL[parsed.data.toRole!]}`;
-  } else {
-    recipients = (await db.clientUser.findMany({ where: { clientId, user: { status: "ACTIVE", role: { key: "CLIENT" } } }, select: { userId: true } })).map((c) => c.userId);
-    title = `💬 ${user.name} (${user.role.name})`;
-  }
-  recipients = recipients.filter((id) => id !== user.id);
-  if (recipients.length) {
+  // Recipients and notifications are handled after the response, so the sender sees the
+  // message straight away.
+  const toRole = parsed.data.toRole;
+  const body = parsed.data.body;
+  after(async () => {
     try {
-      await notify(recipients, { kind: "SYSTEM", title, body: preview, deepLink: fromClient ? `/chat?client=${clientId}` : "/chat" });
+      await markRead(user.id, clientId);
+      const preview = body.length > 140 ? `${body.slice(0, 137)}…` : body;
+      let recipients = fromClient
+        ? await chatRecipients(clientId, toRole!)
+        : (await db.clientUser.findMany({ where: { clientId, user: { status: "ACTIVE", role: { key: "CLIENT" } } }, select: { userId: true } })).map((c) => c.userId);
+      recipients = recipients.filter((id) => id !== user.id);
+      if (recipients.length) {
+        await notify(recipients, {
+          kind: "SYSTEM",
+          title: fromClient ? `💬 ${client.brandName} → ${ROLE_LABEL[toRole!]}` : `💬 ${user.name} (${user.role.name})`,
+          body: preview,
+          deepLink: fromClient ? `/chat?client=${clientId}` : "/chat",
+        });
+      }
     } catch (error) {
       console.error("chat notification failed", error);
     }
-  }
+  });
 
-  return NextResponse.json({ ok: true, id: message.id, messages: await thread(clientId) });
+  return NextResponse.json({
+    ok: true,
+    message: { id: message.id, body: message.body, toRole: message.toRole, createdAt: message.createdAt.toISOString(), author: { id: user.id, name: user.name, role: user.role.key, roleName: user.role.name } },
+  });
 }
 
 export const GET = api(handleGET);

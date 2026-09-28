@@ -24,7 +24,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
       {active
         ? <>
             {clients.length > 1 && <nav className="chat-tabs">{clients.map((c) => <a key={c.id} href={`/chat?client=${c.id}`} className={c.id === active.id ? "active" : ""}>{c.brandName}</a>)}</nav>}
-            <ChatThread clientId={active.id} title={ar ? "فريق 24i" : "24i team"} meId={user.id} isClient ar={ar} />
+            <ChatThread clientId={active.id} title={ar ? "فريق 24i" : "24i team"} meId={user.id} meName={user.name} meRole={user.role.key} isClient ar={ar} />
           </>
         : <Empty title={ar ? "لا يوجد حساب شركة مرتبط" : "Your account is not linked to a company yet"} />}
     </AppShell>;
@@ -52,7 +52,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
             </a>)}
           </aside>
           {active
-            ? <ChatThread key={active.id} clientId={active.id} title={active.brandName} meId={user.id} ar={ar} backHref="/chat" />
+            ? <ChatThread key={active.id} clientId={active.id} title={active.brandName} meId={user.id} meName={user.name} meRole={user.role.key} ar={ar} backHref="/chat" />
             : <div className="panel chat-placeholder"><Empty title={ar ? "اختر محادثة" : "Choose a conversation"} /></div>}
         </div>}
   </AppShell>;

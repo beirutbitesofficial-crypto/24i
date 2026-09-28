@@ -23,8 +23,10 @@ export function ChatFab({ label }: { label: string }) {
     void load();
     const timer = setInterval(load, POLL_MS);
     window.addEventListener("chat:read", load);
+    const onWorkerMessage = (event: MessageEvent) => { if (event.data?.type === "push") void load(); };
+    navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
     document.addEventListener("visibilitychange", load);
-    return () => { alive = false; clearInterval(timer); window.removeEventListener("chat:read", load); document.removeEventListener("visibilitychange", load); };
+    return () => { alive = false; clearInterval(timer); navigator.serviceWorker?.removeEventListener("message", onWorkerMessage); window.removeEventListener("chat:read", load); document.removeEventListener("visibilitychange", load); };
   }, [pathname]);
 
   if (pathname?.startsWith("/chat")) return null;

@@ -1,4 +1,4 @@
-const CACHE="24i-shell-v5";
+const CACHE="24i-shell-v6";
 const APP_ICON="/api/app-icon?v=full-logo-mac-2";
 
 self.addEventListener("install",(event)=>{
@@ -22,12 +22,16 @@ self.addEventListener("fetch",(event)=>{
 
 self.addEventListener("push",(event)=>{
   const data=event.data?.json()||{};
-  event.waitUntil(self.registration.showNotification(data.title||"24i Production",{
-    body:data.body,
-    icon:APP_ICON,
-    badge:APP_ICON,
-    data:{url:data.deepLink||"/"}
-  }));
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(data.title||"24i Production",{
+      body:data.body,
+      icon:APP_ICON,
+      badge:APP_ICON,
+      data:{url:data.deepLink||"/"}
+    }),
+    // Tell open pages something new arrived so they refresh right away (e.g. the chat).
+    self.clients.matchAll({type:"window",includeUncontrolled:true}).then((list)=>list.forEach((c)=>c.postMessage({type:"push",deepLink:data.deepLink||"/"})))
+  ]));
 });
 
 self.addEventListener("notificationclick",(event)=>{
