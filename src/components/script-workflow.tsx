@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
+import { AiScriptWriter } from "@/components/ai-script-writer";
 
 type ClientOption = { id: string; brandName: string };
 type ScriptRow = {
@@ -25,6 +26,9 @@ type Props = {
   isClient: boolean;
   canWrite: boolean;
   ar?: boolean;
+  aiEnabled?: boolean;
+  aiClients?: ClientOption[];
+  showAiSetupHint?: boolean;
 };
 
 async function parseResponse(response: Response) {
@@ -66,7 +70,14 @@ function CopyButton({ text, ar }: { text: string; ar: boolean }) {
   </button>;
 }
 
-export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = false }: Props) {
+export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = false, aiEnabled = false, aiClients = [], showAiSetupHint = false }: Props) {
+  const [newScript, setNewScript] = useState({ clientId: clients[0]?.id || "", title: "", body: "" });
+  const createRef = useRef<HTMLElement>(null);
+  const canCreate = (canWrite && !isClient) || (isClient && clients.length > 0);
+  function applyAiScript(script: { clientId: string; title: string; body: string }) {
+    setNewScript({ clientId: clients.some((c) => c.id === script.clientId) ? script.clientId : clients[0]?.id || "", title: script.title, body: script.body });
+    requestAnimationFrame(() => createRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [revisionOpen, setRevisionOpen] = useState<string | null>(null);
@@ -155,31 +166,34 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
   return <div className="management-stack">
     {message && <div className="notice">{message}</div>}
 
-    {canWrite && !isClient && <section className="panel">
+    {aiEnabled && <AiScriptWriter clients={aiClients} ar={ar} onCopy={copyText} onUse={canCreate ? applyAiScript : undefined} />}
+    {!aiEnabled && showAiSetupHint && <div className="notice">{ar ? "✨ لتشغيل كاتب السكربتات بالذكاء الاصطناعي، أضف OPENAI_API_KEY في إعدادات الاستضافة." : "✨ To turn on the AI script writer, add OPENAI_API_KEY in the hosting environment variables."}</div>}
+
+    {canWrite && !isClient && <section className="panel" ref={createRef}>
       <span className="eyebrow">{ar ? "سكربت جديد" : "NEW SCRIPT"}</span>
       <h2>{ar ? "اكتب السكربت وأرسله للعميل" : "Write a script & send it to the client"}</h2>
       <form className="compact-form" onSubmit={createScript}>
         <label>{ar ? "العميل" : "Client"}
-          <select name="clientId" required>
+          <select name="clientId" required value={newScript.clientId} onChange={(e) => setNewScript({ ...newScript, clientId: e.target.value })}>
             {clients.map((client) => <option key={client.id} value={client.id}>{client.brandName}</option>)}
           </select>
         </label>
-        <label>{ar ? "عنوان السكربت" : "Script title"}<input name="title" required placeholder={ar ? "مثلاً: Reel 1 - نصائح الصيف" : "e.g. Reel 1 - Summer tips"} /></label>
-        <label>{ar ? "السكربت" : "Script"}<textarea name="body" rows={12} required placeholder={ar ? "اكتب السكربت كامل هون…" : "Write the full script here…"} /></label>
+        <label>{ar ? "عنوان السكربت" : "Script title"}<input dir="auto" name="title" required value={newScript.title} onChange={(e) => setNewScript({ ...newScript, title: e.target.value })} placeholder={ar ? "مثلاً: Reel 1 - نصائح الصيف" : "e.g. Reel 1 - Summer tips"} /></label>
+        <label>{ar ? "السكربت" : "Script"}<textarea dir="auto" name="body" rows={12} required value={newScript.body} onChange={(e) => setNewScript({ ...newScript, body: e.target.value })} placeholder={ar ? "اكتب السكربت كامل هون…" : "Write the full script here…"} /></label>
         <button disabled={busyId === "new" || !clients.length}>{busyId === "new" ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال للعميل للموافقة" : "Send to client for approval")}</button>
       </form>
     </section>}
 
-    {isClient && clients.length > 0 && <section className="panel">
+    {isClient && clients.length > 0 && <section className="panel" ref={createRef}>
       <span className="eyebrow">{ar ? "سكربت جديد" : "NEW SCRIPT"}</span>
       <h2>{ar ? "اكتب سكربت وأرسله للفريق" : "Write a script for the team"}</h2>
       <p className="muted">{ar ? "عندك فكرة أو سكربت جاهز؟ اكتبه هون وبيوصل للفريق مباشرة." : "Have an idea or a ready script? Write it here and it goes straight to the team."}</p>
       <form className="compact-form" onSubmit={createScript}>
         {clients.length > 1
-          ? <label>{ar ? "الشركة" : "Company"}<select name="clientId" required>{clients.map((client) => <option key={client.id} value={client.id}>{client.brandName}</option>)}</select></label>
+          ? <label>{ar ? "الشركة" : "Company"}<select name="clientId" required value={newScript.clientId} onChange={(e) => setNewScript({ ...newScript, clientId: e.target.value })}>{clients.map((client) => <option key={client.id} value={client.id}>{client.brandName}</option>)}</select></label>
           : <input type="hidden" name="clientId" value={clients[0].id} />}
-        <label>{ar ? "عنوان السكربت" : "Script title"}<input name="title" required placeholder={ar ? "مثلاً: Reel 1 - نصائح الصيف" : "e.g. Reel 1 - Summer tips"} /></label>
-        <label>{ar ? "السكربت" : "Script"}<textarea name="body" rows={10} required placeholder={ar ? "اكتب السكربت أو الفكرة هون…" : "Write the script or idea here…"} /></label>
+        <label>{ar ? "عنوان السكربت" : "Script title"}<input dir="auto" name="title" required value={newScript.title} onChange={(e) => setNewScript({ ...newScript, title: e.target.value })} placeholder={ar ? "مثلاً: Reel 1 - نصائح الصيف" : "e.g. Reel 1 - Summer tips"} /></label>
+        <label>{ar ? "السكربت" : "Script"}<textarea dir="auto" name="body" rows={10} required value={newScript.body} onChange={(e) => setNewScript({ ...newScript, body: e.target.value })} placeholder={ar ? "اكتب السكربت أو الفكرة هون…" : "Write the script or idea here…"} /></label>
         <button disabled={busyId === "new"}>{busyId === "new" ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال للفريق" : "Send to the team")}</button>
       </form>
     </section>}
@@ -213,7 +227,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
                 <button type="button" disabled={busyId === script.id} onClick={() => void resend(script.id)}>{busyId === script.id ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ التعديلات" : "Save changes")}</button>
               </div>
             </div>
-          : (!revision || !canWrite) && <div className="client-caption-preview"><p>{script.body}</p></div>}
+          : (!revision || !canWrite) && <div className="client-caption-preview"><p dir="auto">{script.body}</p></div>}
         {isClient && script.mine && editing !== script.id && <div className="review-actions"><button type="button" className="secondary" onClick={() => setEditing(script.id)}>{ar ? "تعديل" : "Edit"}</button></div>}
 
         {script.decisionNote && <div className="feedback-box revision-feedback"><b>{ar ? "ملاحظات العميل" : "Client notes"}</b><p>{script.decisionNote}</p></div>}

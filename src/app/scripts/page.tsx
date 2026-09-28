@@ -3,6 +3,7 @@ import { requirePageUser, hasPermission, assignedClientIds } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import { ScriptWorkflow } from "@/components/script-workflow";
+import { aiConfigured } from "@/lib/ai";
 
 const allowedRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"]);
 
@@ -29,7 +30,7 @@ export default async function ScriptsPage() {
       orderBy: { updatedAt: "desc" },
       take: 100,
     }),
-    canWrite || isClient
+    canWrite || isClient || user.role.key === "EDITOR"
       ? db.client.findMany({ where: ids ? { id: { in: ids } } : {}, select: { id: true, brandName: true }, orderBy: { brandName: "asc" } })
       : Promise.resolve([]),
   ]);
@@ -54,6 +55,6 @@ export default async function ScriptsPage() {
   }));
 
   return <AppShell user={user} title="Scripts" kicker="APPROVALS">
-    <ScriptWorkflow clients={clients} scripts={scripts} isClient={isClient} canWrite={canWrite} ar={ar} />
+    <ScriptWorkflow clients={canWrite || isClient ? clients : []} scripts={scripts} isClient={isClient} canWrite={canWrite} ar={ar} aiEnabled={aiConfigured()} aiClients={clients} showAiSetupHint={user.role.key === "ADMIN"} />
   </AppShell>;
 }
