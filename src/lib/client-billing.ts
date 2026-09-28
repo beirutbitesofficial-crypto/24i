@@ -58,8 +58,16 @@ export const wantsPackage = (b: Partial<BillingInput>) => Boolean(b.packageId ||
 
 const monthLabel = (d: Date) => d.toLocaleDateString("en", { month: "long", year: "numeric" });
 
-// Puts a client on a package: closes the current package, opens the new one and issues this
-// month's invoice, then records what was paid (nothing, all of it, or part of it).
+const isPackageLine = (description: string) => / package · /.test(description);
+
+// Puts a client on a package and makes sure this month has exactly one package invoice.
+// - First package this month: the current package is closed, the new one opens and this
+//   month's invoice is issued.
+// - Already billed this month (e.g. fixing a wrong choice): the package and this month's
+//   invoice are corrected in place. Extra package invoices from this month are cancelled and
+//   their payments moved onto the one that stays, so nothing is billed twice.
+// Payment: "PAID" settles the invoice, "PARTIAL" means the client has paid `amount` in total
+// for this month, "UNPAID" leaves recorded payments as they are.
 // A custom package is saved as its own hidden package so it never shows up in the lists.
 export async function assignClientPackage(
   tx: Prisma.TransactionClient,
@@ -69,39 +77,80 @@ export async function assignClientPackage(
     ? await tx.package.create({ data: { name: "Custom", price: money(billing.custom.price), interval: "MONTHLY", entitlements: { reels: billing.custom.reels, posts: billing.custom.posts }, active: false } })
     : billing.packageId ? await tx.package.findUnique({ where: { id: billing.packageId } }) : null;
   if (!pkg || (!billing.custom && !pkg.active)) throw new BillingError("Package not found", 404);
-  const partial = billing.payment === "PARTIAL" ? money(billing.amount || "0") : null;
-  if (partial && (partial.lte(0) || partial.gte(pkg.price))) throw new BillingError(`A partial payment must be more than 0 and less than $${pkg.price.toFixed(0)}`, 400);
-  const paid = billing.payment === "PAID";
   const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const description = `${pkg.name} package · ${monthLabel(now)}`;
 
-  await tx.clientPackage.updateMany({ where: { clientId, OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, data: { endsAt: now } });
-  const assigned = await tx.clientPackage.create({ data: { clientId, packageId: pkg.id, startsAt: now, price: pkg.price, usage: {} } });
+  const thisMonth = (await tx.invoice.findMany({
+    where: { clientId, voidedAt: null, issuedAt: { gte: monthStart } },
+    include: { revenueItems: true, payments: { where: { reversedAt: null } } },
+    orderBy: { issuedAt: "desc" },
+  })).filter((inv) => inv.revenueItems.some((r) => isPackageLine(r.description)));
 
-  const number = `INV-${now.toISOString().slice(0, 10).replaceAll("-", "")}-${randomBytes(4).toString("hex").toUpperCase()}`;
-  const invoice = await tx.invoice.create({
-    data: {
-      clientId,
-      number,
-      total: pkg.price,
-      dueDate: now,
-      status: paid ? "PAID" : partial ? "PARTIALLY_PAID" : "UNPAID",
-      revenueItems: { create: { description: `${pkg.name} package · ${monthLabel(now)}`, amount: pkg.price, kind: "SERVICE" } },
-    },
-  });
-  await tx.financialTransaction.create({ data: { type: "INVOICE", amount: pkg.price, invoiceId: invoice.id, createdById: actorId } });
-  if (paid) await recordPayment(tx, invoice.id, pkg.price, "PAID", actorId, method);
-  else if (partial) await recordPayment(tx, invoice.id, partial, "PARTIALLY_PAID", actorId, method);
+  let invoice: { id: string; number: string };
+  let assignedId: string;
+  let corrected = false;
+
+  if (thisMonth.length) {
+    corrected = true;
+    const [keep, ...extra] = thisMonth;
+    const paidSoFar = thisMonth.reduce((sum, inv) => sum.plus(inv.payments.reduce((s2, p) => s2.plus(p.amount), money(0))), money(0));
+    if (paidSoFar.gt(pkg.price)) throw new BillingError(`The client already paid $${paidSoFar.toFixed(2)} this month, more than the new price ($${pkg.price.toFixed(2)}).`, 409);
+
+    for (const inv of extra) {
+      await tx.payment.updateMany({ where: { invoiceId: inv.id }, data: { invoiceId: keep.id } });
+      await tx.financialTransaction.updateMany({ where: { invoiceId: inv.id, type: "PAYMENT" }, data: { invoiceId: keep.id } });
+      await tx.invoice.update({ where: { id: inv.id }, data: { voidedAt: now } });
+      await tx.financialTransaction.create({ data: { type: "REVERSAL", amount: inv.total.negated(), invoiceId: inv.id, createdById: actorId, metadata: { reason: "Duplicate package invoice cancelled", mergedInto: keep.number } } });
+    }
+    const packageLines = keep.revenueItems.filter((r) => isPackageLine(r.description));
+    const others = keep.revenueItems.filter((r) => !isPackageLine(r.description)).reduce((sum, r) => sum.plus(r.amount), money(0));
+    await tx.revenueItem.deleteMany({ where: { id: { in: packageLines.map((r) => r.id) } } });
+    await tx.revenueItem.create({ data: { invoiceId: keep.id, description, amount: pkg.price, kind: "SERVICE" } });
+    const total = others.plus(pkg.price);
+    if (!total.eq(keep.total)) {
+      await tx.financialTransaction.create({ data: { type: "INVOICE", amount: total.minus(keep.total), invoiceId: keep.id, createdById: actorId, metadata: { adjustment: true, reason: "Package changed" } } });
+    }
+    await tx.invoice.update({ where: { id: keep.id }, data: { total, status: invoiceState(total, paidSoFar).status } });
+    invoice = keep;
+
+    const current = await tx.clientPackage.findFirst({ where: { clientId, OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, orderBy: { startsAt: "desc" } });
+    if (current) {
+      await tx.clientPackage.update({ where: { id: current.id }, data: { packageId: pkg.id, price: pkg.price } });
+      await tx.clientPackage.updateMany({ where: { clientId, id: { not: current.id }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, data: { endsAt: now } });
+      assignedId = current.id;
+    } else {
+      assignedId = (await tx.clientPackage.create({ data: { clientId, packageId: pkg.id, startsAt: now, price: pkg.price, usage: {} } })).id;
+    }
+  } else {
+    await tx.clientPackage.updateMany({ where: { clientId, OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, data: { endsAt: now } });
+    assignedId = (await tx.clientPackage.create({ data: { clientId, packageId: pkg.id, startsAt: now, price: pkg.price, usage: {} } })).id;
+    const number = `INV-${now.toISOString().slice(0, 10).replaceAll("-", "")}-${randomBytes(4).toString("hex").toUpperCase()}`;
+    invoice = await tx.invoice.create({
+      data: { clientId, number, total: pkg.price, dueDate: now, status: "UNPAID", revenueItems: { create: { description, amount: pkg.price, kind: "SERVICE" } } },
+    });
+    await tx.financialTransaction.create({ data: { type: "INVOICE", amount: pkg.price, invoiceId: invoice.id, createdById: actorId } });
+  }
+
+  // Bring what is recorded as paid for this month's invoice up to what the user said.
+  const fresh = await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id }, include: { payments: { where: { reversedAt: null } } } });
+  const alreadyPaid = fresh.payments.reduce((sum, p) => sum.plus(p.amount), money(0));
+  const target = billing.payment === "PAID" ? fresh.total : billing.payment === "PARTIAL" ? money(billing.amount || "0") : alreadyPaid;
+  if (billing.payment === "PARTIAL" && (target.lte(0) || target.gte(fresh.total))) throw new BillingError(`A partial payment must be more than 0 and less than $${fresh.total.toFixed(0)}`, 400);
+  if (target.lt(alreadyPaid)) throw new BillingError(`$${alreadyPaid.toFixed(2)} is already recorded as paid for this month. Enter at least that amount.`, 409);
+  const extraPayment = target.minus(alreadyPaid);
+  if (extraPayment.gt(0)) await recordPayment(tx, fresh.id, extraPayment, invoiceState(fresh.total, target).status === "PAID" ? "PAID" : "PARTIALLY_PAID", actorId, method);
 
   await tx.auditLog.create({
     data: {
       userId: actorId,
-      action: "CLIENT_PACKAGE_ASSIGNED",
+      action: corrected ? "CLIENT_PACKAGE_CORRECTED" : "CLIENT_PACKAGE_ASSIGNED",
       entityType: "ClientPackage",
-      entityId: assigned.id,
-      newValue: { clientId, package: pkg.name, price: pkg.price.toString(), invoice: number, payment: billing.payment, amount: partial?.toString() ?? null },
+      entityId: assignedId,
+      newValue: { clientId, package: pkg.name, price: pkg.price.toString(), invoice: invoice.number, payment: billing.payment, paidThisMonth: target.toString(), cancelledInvoices: corrected ? thisMonth.slice(1).map((x) => x.number) : [] },
     },
   });
-  return { assigned, invoice };
+  return { invoice };
 }
 
 async function recordPayment(tx: Prisma.TransactionClient, invoiceId: string, amount: Prisma.Decimal, status: "PAID" | "PARTIALLY_PAID", actorId: string, method: string) {

@@ -12,7 +12,7 @@ const MONEY = "\\d+(\\.\\d{1,2})?";
 export const packageLabel = (p: PackageOption) => `${p.name} · ${p.reels} reels + ${p.posts} posts · $${p.price}`;
 
 // Package + payment inputs shared by "Create user", "Add client" and the package editors.
-export function PackageFields({ packages, allowNone = true }: { packages: PackageOption[]; allowNone?: boolean }) {
+export function PackageFields({ packages, allowNone = true, changing = false }: { packages: PackageOption[]; allowNone?: boolean; changing?: boolean }) {
   const [packageId, setPackageId] = useState(packages[0]?.id || CUSTOM);
   const [payment, setPayment] = useState("UNPAID");
   const selected = packages.find((p) => p.id === packageId);
@@ -29,11 +29,11 @@ export function PackageFields({ packages, allowNone = true }: { packages: Packag
       <label>Price / month (USD)<input name="customPrice" inputMode="decimal" pattern={MONEY} title="Amount such as 450 or 450.50" required placeholder="450" /></label>
     </div>}
     {packageId && <label>Payment<select name="payment" value={payment} onChange={(e) => setPayment(e.target.value)}>
-      <option value="UNPAID">Not paid yet</option>
+      <option value="UNPAID">{changing ? "Keep payments as recorded" : "Not paid yet"}</option>
       <option value="PAID">Paid in full</option>
       <option value="PARTIAL">Partly paid</option>
     </select></label>}
-    {packageId && payment === "PARTIAL" && <label>Amount paid (USD)<input name="amount" inputMode="decimal" pattern={MONEY} title="Amount such as 150 or 150.50" required placeholder={price ? `Less than ${price}` : "150"} /></label>}
+    {packageId && payment === "PARTIAL" && <label>{changing ? "Total paid this month (USD)" : "Amount paid (USD)"}<input name="amount" inputMode="decimal" pattern={MONEY} title="Amount such as 150 or 150.50" required placeholder={price ? `Less than ${price}` : "150"} /></label>}
   </>;
 }
 
@@ -71,8 +71,8 @@ export function PackageCell({ clientId, summary, packages, canEdit }: { clientId
   }
 
   if (editing) return <form className="billing-edit" onSubmit={save}>
-    <PackageFields packages={packages} allowNone={false} />
-    {summary?.packageName && <small className="muted">This starts a new monthly invoice for the new package.</small>}
+    <PackageFields packages={packages} allowNone={false} changing={Boolean(summary?.packageName)} />
+    {summary?.packageName && <small className="muted">This corrects this month&apos;s invoice — nothing is billed twice.</small>}
     {error && <small className="billing-error">{error}</small>}
     <span className="billing-actions"><button disabled={busy}>{busy ? "Saving…" : "Save"}</button><button type="button" className="ghost" onClick={() => setEditing(false)}>Cancel</button></span>
   </form>;
