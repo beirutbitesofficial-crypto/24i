@@ -9,9 +9,11 @@ import { PwaRegister } from "@/components/pwa-register";
 const inter = Inter({ subsets: ["latin"], variable: "--font-latin", display: "swap" });
 const arabic = IBM_Plex_Sans_Arabic({ subsets: ["arabic"], weight: ["400", "500", "600", "700"], variable: "--font-arabic", display: "swap" });
 
-const appleIcon = "/api/app-icon?v=full-logo-mac-2";
-const desktop192 = "/api/app-icon-desktop?size=192&v=2";
-const desktop512 = "/api/app-icon-desktop?size=512&v=2";
+// Static icon files: generated icons depended on the server fetching itself, which failed
+// in production and left Android with a blank icon.
+const appleIcon = "/apple-touch-icon.png?v=3";
+const desktop192 = "/icon-192.png?v=3";
+const desktop512 = "/icon-512.png?v=3";
 // Applies the saved (or system) theme before first paint to avoid a flash of the wrong theme.
 const themeScript = `(function(){try{var s=localStorage.getItem('24i-theme');var t=s||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t;}catch(e){}})();`;
 

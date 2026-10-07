@@ -111,7 +111,7 @@ export function PwaRegister() {
 
   return <div className="push-modal-backdrop" role="dialog" aria-modal="true" aria-label="24i notifications">
     <section className="push-modal">
-      <img src="/api/app-icon?v=full-logo-mac-2" alt="24i Production" className="push-modal-logo" />
+      <img src="/icon-192.png?v=3" alt="24i Production" className="push-modal-logo" />
       <div className="push-modal-copy">
         <span className="eyebrow">24i PRODUCTION</span>
         <h2>{state === "denied" ? "Notifications are blocked" : state === "error" ? "Notifications need setup" : "Allow notifications?"}</h2>
