@@ -1,12 +1,12 @@
 "use client";
 
-import { site } from "@/lib/site";
+import { basePath, site } from "@/lib/site";
 import { SERVICE_OPTIONS } from "@/lib/forms";
 import { Field, Honeypot, SentCard, SubmitRow, useSubmit } from "./form-kit";
 import { Reveal } from "./reveal";
 
 export function Contact() {
-  const { status, onSubmit, reset } = useSubmit("/api/contact");
+  const { status, onSubmit, reset } = useSubmit(`${basePath}/api/contact`);
   const err = status.fieldErrors ?? {};
   const channels = [
     site.email && { label: "Email", value: site.email, href: `mailto:${site.email}` },

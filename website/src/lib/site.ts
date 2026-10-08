@@ -13,6 +13,9 @@ export const site = {
   timezone: "Asia/Beirut",
 };
 
+/** Mount path of the site (see next.config.ts). fetch() does not add it automatically. */
+export const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "/website";
+
 export const nav = [
   { label: "Home", href: "#home" },
   { label: "Services", href: "#services" },

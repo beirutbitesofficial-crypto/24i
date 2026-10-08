@@ -43,6 +43,13 @@ Form delivery needs at least one of the following in production:
 
 If neither is configured, production submissions return a 503 with a "reach us directly" message, so no enquiry is silently lost. In development they are logged to the console.
 
-## Deploy
+## Deploy: system at `/`, website at `/website`
 
-On Vercel (or a similar host), set the project **Root Directory** to `website/`.
+The site is built with `basePath: "/website"` and runs as a second Next.js app next to the agency OS (Next.js multi-zones):
+
+1. **Deploy the website** as its own project (for example on Vercel, with Root Directory set to `website/`). Its URL redirects to `/website`.
+2. **On the system deployment** (the one serving `24iproduction.com`), set `WEBSITE_URL` to the website deployment's origin, for example `https://24i-website.vercel.app`, then redeploy.
+
+`24iproduction.com` then opens the system and `24iproduction.com/website` opens this site. The system's service worker ignores `/website`.
+
+To serve the site at the root of its own domain instead, build it with `NEXT_PUBLIC_BASE_PATH=""`.

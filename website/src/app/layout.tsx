@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   title: "24i Production | Production, Social, Websites, Apps, Systems & Ads",
   description:
     "24i Production is a Beirut creative and technology studio: film production, social media management, websites, apps, business systems and ads management.",
-  icons: { icon: "/icon.svg" },
   openGraph: {
     title: "24i Production",
     description: "Production, social media, websites, apps, systems and ads, framed through one lens.",

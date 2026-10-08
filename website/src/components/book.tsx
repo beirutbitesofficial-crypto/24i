@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { site } from "@/lib/site";
+import { basePath, site } from "@/lib/site";
 import { MEETING_SLOTS, SERVICE_OPTIONS } from "@/lib/forms";
 import { Field, Honeypot, SentCard, SubmitRow, useSubmit } from "./form-kit";
 import { Reveal } from "./reveal";
@@ -9,7 +9,7 @@ import { Reveal } from "./reveal";
 const STEPS = ["Pick a day and time", "We confirm by email", "Meet in studio or on video"];
 
 export function Book() {
-  const { status, onSubmit, reset } = useSubmit("/api/book");
+  const { status, onSubmit, reset } = useSubmit(`${basePath}/api/book`);
   const err = status.fieldErrors ?? {};
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
