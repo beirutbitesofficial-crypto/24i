@@ -2,6 +2,11 @@
 
 Production-oriented Next.js/PostgreSQL foundation for agency operations. It includes a relational Prisma domain model, secure cookie sessions with Argon2id passwords, server-side RBAC/client isolation helpers, immutable content versions, separate visual/caption approvals, mandatory revision notes, slide-specific carousel notes, exact decimal payment accounting, append-only financial transactions/audits, push subscriptions, PWA shell and a responsive dashboard.
 
+
+## Public website (`/website`)
+
+The public marketing site is part of this app: `24iproduction.com` opens the system and `24iproduction.com/website` opens the site. Its code lives in `src/app/(website)/website`, `src/components/website` and `src/lib/website`. It has its own root layout and Tailwind stylesheet, so it never shares CSS with the system, whose pages live in the `src/app/(system)` route group. Studio contact details are in `src/lib/website/site.ts`. For the contact and booking forms to send, set `RESEND_API_KEY` + `FORM_TO_EMAIL` (or `FORM_WEBHOOK_URL`); otherwise production submissions return a 503 with a "reach us directly" message.
+
 ## Local setup
 
 1. Install Node.js 22+, PostgreSQL 16+, and an S3-compatible object store.
