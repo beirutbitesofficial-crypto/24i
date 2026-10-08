@@ -1,6 +1,6 @@
 "use client";
 
-import { scrollToSection } from "@/lib/scroll";
+import { scrollToSection } from "@/lib/website/scroll";
 
 export function FooterLinks({ links }: { links: readonly { label: string; href: string }[] }) {
   return (

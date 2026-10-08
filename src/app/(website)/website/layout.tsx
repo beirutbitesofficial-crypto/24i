@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { site } from "@/lib/site";
+import { site } from "@/lib/website/site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: "24i Production | Production, Social, Websites, Apps, Systems & Ads",
+  icons: { icon: "/icon.svg" },
   description:
     "24i Production is a Beirut creative and technology studio: film production, social media management, websites, apps, business systems and ads management.",
   openGraph: {

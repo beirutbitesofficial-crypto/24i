@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { nav } from "@/lib/site";
-import { scrollToSection } from "@/lib/scroll";
+import { nav } from "@/lib/website/site";
+import { scrollToSection } from "@/lib/website/scroll";
 
 export function Nav() {
   const [open, setOpen] = useState(false);

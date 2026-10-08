@@ -4,8 +4,8 @@ import { useRef, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-import { services, type ServiceId } from "@/lib/site";
-import { registerScrollTarget } from "@/lib/scroll";
+import { services, type ServiceId } from "@/lib/website/site";
+import { registerScrollTarget } from "@/lib/website/scroll";
 import { AdsVisual, AppsVisual, ProductionVisual, SocialVisual, SystemsVisual, WebsitesVisual } from "./visuals";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);

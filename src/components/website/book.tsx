@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { basePath, site } from "@/lib/site";
-import { MEETING_SLOTS, SERVICE_OPTIONS } from "@/lib/forms";
+import { basePath, site } from "@/lib/website/site";
+import { MEETING_SLOTS, SERVICE_OPTIONS } from "@/lib/website/forms";
 import { Field, Honeypot, SentCard, SubmitRow, useSubmit } from "./form-kit";
 import { Reveal } from "./reveal";
 

@@ -1,4 +1,4 @@
-import { site } from "@/lib/site";
+import { site } from "@/lib/website/site";
 import { Reveal } from "./reveal";
 import { LocalTime } from "./local-time";
 

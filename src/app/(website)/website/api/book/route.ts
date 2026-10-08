@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { bookingSchema } from "@/lib/forms";
-import { handleForm } from "@/lib/handle-form";
+import { bookingSchema } from "@/lib/website/forms";
+import { handleForm } from "@/lib/website/handle-form";
 
 export async function POST(req: NextRequest) {
   return handleForm(req, "booking", bookingSchema, (d) => ({

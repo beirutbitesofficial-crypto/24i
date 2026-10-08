@@ -7,7 +7,7 @@ import { useGSAP } from "@gsap/react";
 import { EyeSvg, LID } from "./eye";
 import { CameraRig, CAMERA_GLASS_RATIO } from "./camera";
 import { Viewfinder } from "./viewfinder";
-import { scrollToSection } from "@/lib/scroll";
+import { scrollToSection } from "@/lib/website/scroll";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
