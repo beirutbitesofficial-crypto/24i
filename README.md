@@ -7,6 +7,10 @@ Production-oriented Next.js/PostgreSQL foundation for agency operations. It incl
 
 The public marketing site is part of this app: `24iproduction.com` opens the system and `24iproduction.com/website` opens the site. Its code lives in `src/app/(website)/website`, `src/components/website` and `src/lib/website`. It has its own root layout and Tailwind stylesheet, so it never shares CSS with the system, whose pages live in the `src/app/(system)` route group. Studio contact details are in `src/lib/website/site.ts`. For the contact and booking forms to send, set `RESEND_API_KEY` + `FORM_TO_EMAIL` (or `FORM_WEBHOOK_URL`); otherwise production submissions return a 503 with a "reach us directly" message.
 
+### Meeting bookings
+
+"Book a meeting" on the website creates a **pending** `MeetingRequest` (table created on first use, see `prisma/migrations/3_meetings`). Admins and Managers get an in-app and push notification and, when the WhatsApp Cloud API is configured, a WhatsApp message on `MEETINGS_WHATSAPP_TO`. They confirm or decline in **/meetings**; the client then gets a WhatsApp message (automatically with the Cloud API, otherwise through a one-tap prefilled wa.me link). Clients can follow their request at the status link shown after booking. Slots that are pending or confirmed are hidden from the booking form.
+
 ## Local setup
 
 1. Install Node.js 22+, PostgreSQL 16+, and an S3-compatible object store.

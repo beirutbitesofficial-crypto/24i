@@ -1,17 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { basePath, site } from "@/lib/website/site";
 import { MEETING_SLOTS, SERVICE_OPTIONS } from "@/lib/website/forms";
-import { Field, Honeypot, SentCard, SubmitRow, useSubmit } from "./form-kit";
+import { Field, Honeypot, SubmitRow, useSubmit } from "./form-kit";
 import { Reveal } from "./reveal";
 
-const STEPS = ["Pick a day and time", "We confirm by email", "Meet in studio or on video"];
+const STEPS = ["Pick a day and time", "We confirm on WhatsApp", "Meet in studio or on video"];
 
 export function Book() {
   const { status, onSubmit, reset } = useSubmit(`${basePath}/api/book`);
   const err = status.fieldErrors ?? {};
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [date, setDate] = useState("");
+  const [taken, setTaken] = useState<string[]>([]);
+
+  // Hide times that are already requested or confirmed for the chosen day.
+  useEffect(() => {
+    if (!date) return setTaken([]);
+    const ctrl = new AbortController();
+    fetch(`${basePath}/api/book/slots?date=${date}`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((d: { taken?: string[] }) => setTaken(d.taken ?? []))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [date, status.state]);
+  const statusUrl = typeof status.data?.statusUrl === "string" ? status.data.statusUrl : null;
 
   return (
     <Reveal as="section" id="book" aria-labelledby="book-title" className="relative overflow-hidden bg-cream px-6 py-24 text-ink sm:px-10 md:px-16 md:py-32">
@@ -40,7 +55,21 @@ export function Book() {
           {site.bookingUrl ? (
             <iframe title="Book a meeting with 24i Production" src={site.bookingUrl} loading="lazy" className="h-[720px] w-full rounded-sm bg-cream" />
           ) : status.state === "sent" ? (
-            <SentCard title="Request received" body="Your meeting request is in. We'll confirm the slot by email, or suggest the closest alternative." onReset={reset} />
+            <div role="status" className="flex min-h-[320px] flex-col items-start justify-center gap-4 border border-cream/15 p-8">
+              <span className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.4em] text-[#f5c542]">
+                <span className="rec-blink inline-block h-2.5 w-2.5 rounded-full bg-[#f5c542]" /> Pending confirmation
+              </span>
+              <p className="font-wide text-3xl uppercase">Request received</p>
+              <p className="max-w-md text-cream/70">The team has your request. As soon as it&apos;s confirmed you&apos;ll get a WhatsApp message with the details.</p>
+              {statusUrl && (
+                <Link href={statusUrl} className="rounded-full border border-cream/30 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] transition hover:border-teal-bright hover:text-teal-bright">
+                  Check status ↗
+                </Link>
+              )}
+              <button type="button" onClick={reset} className="mt-2 font-mono text-xs uppercase tracking-[0.3em] text-mute underline-offset-4 hover:text-cream hover:underline">
+                Book another
+              </button>
+            </div>
           ) : (
             <form onSubmit={onSubmit} noValidate className="relative grid gap-8">
               <Honeypot />
@@ -49,7 +78,7 @@ export function Book() {
                 <Field name="email" label="Email" type="email" required autoComplete="email" error={err.email} />
               </div>
               <div className="grid gap-8 sm:grid-cols-2">
-                <Field name="phone" label="Phone" type="tel" autoComplete="tel" error={err.phone} />
+                <Field name="phone" label="WhatsApp number" type="tel" required autoComplete="tel" error={err.phone} />
                 <Field name="service" label="Topic" required error={err.service}>
                   {SERVICE_OPTIONS.map((s) => (
                     <option key={s} value={s} className="bg-ink">
@@ -59,11 +88,12 @@ export function Book() {
                 </Field>
               </div>
               <div className="grid gap-8 sm:grid-cols-3">
-                <Field name="date" label="Date" type="date" required min={today} error={err.date} />
+                <Field name="date" label="Date" type="date" required min={today} error={err.date} onChange={setDate} />
                 <Field name="time" label="Time" required error={err.time}>
                   {MEETING_SLOTS.map((t) => (
-                    <option key={t} value={t} className="bg-ink">
+                    <option key={t} value={t} disabled={taken.includes(t)} className="bg-ink">
                       {t}
+                      {taken.includes(t) ? " · taken" : ""}
                     </option>
                   ))}
                 </Field>

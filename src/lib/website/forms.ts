@@ -21,6 +21,8 @@ export const MEETING_SLOTS = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:0
 
 export const bookingSchema = z.object({
   ...base,
+  // Required: the confirmation is sent on WhatsApp.
+  phone: z.string({ required_error: "Please enter your WhatsApp number." }).trim().min(7, "Please enter your WhatsApp number.").max(40).regex(/^[+\d][\d\s\-()]{6,}$/, "Please enter a valid phone number."),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date.")
