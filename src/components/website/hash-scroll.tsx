@@ -1,20 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { scrollToSection } from "@/lib/website/scroll";
 
-/** Pinned sections shift layout after hydration, so honour an initial #hash once ScrollTrigger has measured. */
+/** Honour an initial #hash for sections below the cinema once the layout has settled. */
 export function HashScroll() {
   useEffect(() => {
     const hash = window.location.hash;
-    if (!hash || hash === "#home") return;
+    if (!hash || hash === "#home" || hash === "#services") return;
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    const go = () => scrollToSection(hash);
-    const id = window.setTimeout(() => {
-      ScrollTrigger.refresh();
-      go();
-    }, 120);
+    const id = window.setTimeout(() => scrollToSection(hash), 150);
     return () => window.clearTimeout(id);
   }, []);
   return null;

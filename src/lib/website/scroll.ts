@@ -1,32 +1,42 @@
 "use client";
 
 /**
- * Pinned GSAP sections move their DOM into pin spacers, so plain anchor jumps
- * land in the wrong place. Animated sections register the exact scroll offset
- * for their anchor here; navigation falls back to the element otherwise.
+ * The intro and services run as a paged "cinema" at the top of the page while the
+ * rest of the site scrolls normally. The cinema controller registers itself here so
+ * navigation can either turn its pages or hand control back to native scrolling.
  */
-const targets = new Map<string, () => number>();
+export type PageTarget = number | "next" | "prev";
+type Pager = { go: (target: PageTarget) => void; leave: () => void };
 
-export function registerScrollTarget(id: string, resolve: () => number) {
-  targets.set(id, resolve);
+let pager: Pager | null = null;
+
+export function registerPager(p: Pager) {
+  pager = p;
   return () => {
-    if (targets.get(id) === resolve) targets.delete(id);
+    if (pager === p) pager = null;
   };
+}
+
+/** Page 0 is the intro; pages 1..6 are the services. */
+export function goToPage(target: PageTarget) {
+  pager?.go(target);
 }
 
 export function scrollToSection(hash: string) {
   const id = hash.replace(/^#/, "");
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const behavior: ScrollBehavior = reduce ? "auto" : "smooth";
-  const resolve = targets.get(id);
+  history.replaceState(null, "", `#${id}`);
+
+  if (pager && (id === "home" || id === "services")) {
+    pager.go(id === "home" ? 0 : 1);
+    return;
+  }
   if (id === "home") {
     window.scrollTo({ top: 0, behavior });
-  } else if (resolve) {
-    window.scrollTo({ top: resolve(), behavior });
-  } else {
-    const el = document.getElementById(id);
-    if (!el) return;
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior });
+    return;
   }
-  history.replaceState(null, "", `#${id}`);
+  pager?.leave();
+  const el = document.getElementById(id);
+  if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior });
 }

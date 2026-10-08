@@ -25,6 +25,7 @@ const arTitles: Record<string, string> = {
   Content: "المحتوى",
   Scripts: "السكربتات",
   "Shooting days": "أيام التصوير",
+  Meetings: "الاجتماعات",
   Calendar: "التقويم",
   "Content calendar": "تقويم المحتوى",
   Files: "الملفات",
@@ -59,6 +60,7 @@ const arKickers: Record<string, string> = {
   CALENDAR: "التقويم",
   SCHEDULE: "الجدول",
   INBOX: "الوارد",
+  "WEBSITE BOOKINGS": "حجوزات الموقع",
   ACCOUNTABILITY: "المساءلة",
 };
 
@@ -70,7 +72,7 @@ const arRoles: Record<string, string> = {
   CLIENT: "عميل",
 };
 
-const WORKSPACE = ["/", "/tasks", "/content", "/scripts", "/shooting", "/calendar", "/chat", "/notifications"];
+const WORKSPACE = ["/", "/tasks", "/content", "/scripts", "/shooting", "/meetings", "/calendar", "/chat", "/notifications"];
 const CHAT_ROLES = ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"];
 
 export function AppShell({ user, title, kicker, actions, children }: { user: ShellUser; title: string; kicker: string; actions?: React.ReactNode; children: React.ReactNode }) {
@@ -85,6 +87,7 @@ export function AppShell({ user, title, kicker, actions, children }: { user: She
     { href: "/content", icon: "image", label: ar ? "المحتوى" : "Content", permission: "content.read" },
     { href: "/scripts", icon: "script", label: ar ? "السكربتات" : "Scripts", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"] },
     { href: "/shooting", icon: "camera", label: ar ? "أيام التصوير" : "Shooting days", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"] },
+    { href: "/meetings", icon: "calendar", label: ar ? "الاجتماعات" : "Meetings", roles: ["ADMIN", "MANAGER"] },
     { href: "/calendar", icon: "calendar", label: ar ? "التقويم" : "Calendar", permission: "calendar.read" },
     { href: "/chat", icon: "chat", label: ar ? "الرسائل" : "Messages", roles: CHAT_ROLES },
     { href: "/notifications", icon: "bell", label: ar ? "الإشعارات" : "Notifications", permission: "notifications.read" },

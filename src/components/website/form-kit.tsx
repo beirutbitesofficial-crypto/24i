@@ -2,12 +2,12 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 
-export type Status = { state: "idle" | "sending" | "sent" | "error"; message?: string; fieldErrors?: Record<string, string> };
+export type Status = { state: "idle" | "sending" | "sent" | "error"; message?: string; fieldErrors?: Record<string, string>; data?: Record<string, unknown> };
 
 const control =
   "peer w-full border-0 border-b border-cream/25 bg-transparent px-0 pb-3 pt-6 text-base text-cream outline-none transition-colors placeholder:text-transparent focus:border-teal-bright focus-visible:outline-none aria-[invalid=true]:border-rec [color-scheme:dark]";
 
-export function Field({ name, label, type = "text", required, error, autoComplete, min, children, textarea }: {
+export function Field({ name, label, type = "text", required, error, autoComplete, min, children, textarea, onChange }: {
   name: string;
   label: string;
   type?: string;
@@ -17,9 +17,10 @@ export function Field({ name, label, type = "text", required, error, autoComplet
   min?: string;
   children?: ReactNode;
   textarea?: boolean;
+  onChange?: (value: string) => void;
 }) {
   const id = `f-${name}`;
-  const common = { id, name, required, "aria-invalid": error ? true : undefined, "aria-describedby": error ? `${id}-err` : undefined };
+  const common = { id, name, required, "aria-invalid": error ? true : undefined, "aria-describedby": error ? `${id}-err` : undefined, onChange: onChange ? (e: { target: { value: string } }) => onChange(e.target.value) : undefined };
   return (
     <div className="relative">
       {children ? (
@@ -74,10 +75,10 @@ export function useSubmit(endpoint: string) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(new FormData(form))),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; fieldErrors?: Record<string, string> };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; fieldErrors?: Record<string, string> } & Record<string, unknown>;
       if (res.ok && data.ok) {
         form.reset();
-        setStatus({ state: "sent" });
+        setStatus({ state: "sent", data });
       } else {
         setStatus({ state: "error", message: data.error ?? "Something went wrong. Please try again.", fieldErrors: data.fieldErrors });
       }

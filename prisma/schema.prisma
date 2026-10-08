@@ -610,3 +610,29 @@ model ChatRead {
 
   @@unique([userId, clientId])
 }
+
+// Meeting requests from the public website (/website → Book a meeting). Managers confirm or
+// decline them in /meetings; the client is told on WhatsApp. status: PENDING | CONFIRMED | DECLINED.
+model MeetingRequest {
+  id               String    @id @default(cuid())
+  token            String    @unique
+  name             String
+  email            String
+  phone            String
+  service          String
+  date             String
+  time             String
+  format           String
+  notes            String?
+  status           String    @default("PENDING")
+  decidedAt        DateTime?
+  decidedById      String?
+  decidedByName    String?
+  managerNote      String?
+  clientNotifiedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, date])
+  @@index([date, time])
+}

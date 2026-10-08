@@ -1,6 +1,5 @@
 import { Nav } from "@/components/website/nav";
-import { Intro } from "@/components/website/intro/intro";
-import { ServicesDeck } from "@/components/website/services/deck";
+import { Cinema } from "@/components/website/cinema";
 import { Location } from "@/components/website/location";
 import { Contact } from "@/components/website/contact";
 import { Book } from "@/components/website/book";
@@ -15,8 +14,7 @@ export default function Home() {
       </a>
       <Nav />
       <main>
-        <Intro />
-        <ServicesDeck />
+        <Cinema />
         <Location />
         <Contact />
         <Book />

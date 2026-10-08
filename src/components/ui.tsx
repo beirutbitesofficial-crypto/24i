@@ -9,6 +9,7 @@ const tones: Record<string, Tone> = {
   ACTIVE: "success", COMPLETED: "success", APPROVED: "success", CAPTION_APPROVED: "success", PAID: "success", PUBLISHED: "success", READY_TO_SCHEDULE: "success",
   SCHEDULED: "accent", IN_PROGRESS: "info", PRODUCTION: "info", UPLOAD: "info", CONTENT_PLAN: "info", REVIEW: "info", CLIENT_REVIEW: "info",
   WAITING: "warning", WAITING_CLIENT: "warning", WAITING_CLIENT_APPROVAL: "warning", PARTIALLY_PAID: "warning", PENDING: "warning", PENDING_PAYMENT: "warning", CONTRACT_ENDING: "warning", HIGH: "warning", LEAD: "info",
+  CONFIRMED: "success", DECLINED: "danger",
   REVISION: "danger", REVISION_REQUESTED: "danger", UNPAID: "danger", DISABLED: "danger", URGENT: "danger", OVERDUE: "danger",
 };
 
