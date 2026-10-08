@@ -1,0 +1,20 @@
+import type { NextRequest } from "next/server";
+import { bookingSchema } from "@/lib/forms";
+import { handleForm } from "@/lib/handle-form";
+
+export async function POST(req: NextRequest) {
+  return handleForm(req, "booking", bookingSchema, (d) => ({
+    subject: `Meeting request: ${d.date} ${d.time} (Beirut) with ${d.name}`,
+    replyTo: d.email,
+    fields: {
+      Name: d.name,
+      Email: d.email,
+      Phone: d.phone,
+      Service: d.service,
+      Date: d.date,
+      "Time (Asia/Beirut)": d.time,
+      Format: d.format,
+      Notes: d.notes,
+    },
+  }));
+}
