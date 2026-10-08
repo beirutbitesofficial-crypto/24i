@@ -1,7 +1,7 @@
 "use client";
 
-import { basePath, site } from "@/lib/site";
-import { SERVICE_OPTIONS } from "@/lib/forms";
+import { basePath, site } from "@/lib/website/site";
+import { SERVICE_OPTIONS } from "@/lib/website/forms";
 import { Field, Honeypot, SentCard, SubmitRow, useSubmit } from "./form-kit";
 import { Reveal } from "./reveal";
 

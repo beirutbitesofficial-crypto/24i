@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { scrollToSection } from "@/lib/scroll";
+import { scrollToSection } from "@/lib/website/scroll";
 
 /** Pinned sections shift layout after hydration, so honour an initial #hash once ScrollTrigger has measured. */
 export function HashScroll() {

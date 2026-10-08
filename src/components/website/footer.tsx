@@ -1,4 +1,4 @@
-import { nav, site } from "@/lib/site";
+import { nav, site } from "@/lib/website/site";
 import { FooterLinks } from "./footer-links";
 
 export function Footer() {

@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../../../components/website";
+@source "./";
 @import "@fontsource-variable/archivo/wdth.css";
 @import "@fontsource-variable/inter/index.css";
 @import "@fontsource/jetbrains-mono/400.css";
