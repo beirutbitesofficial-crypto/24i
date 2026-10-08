@@ -24,7 +24,7 @@ export function Book() {
             <span className="mask block"><span data-r-line>with us<span className="text-teal">.</span></span></span>
           </h2>
           <p data-r className="mt-8 max-w-md text-ink/70">
-            A 30 minute conversation to understand your goals and map the right mix of production, social, web, apps, systems and ads. All times are Beirut time.
+            A 30 minute conversation to understand your goals and map the right mix of production, social, web, apps, systems and ads. All times are Lebanon time.
           </p>
           <ol className="mt-12 grid gap-4">
             {STEPS.map((s, i) => (

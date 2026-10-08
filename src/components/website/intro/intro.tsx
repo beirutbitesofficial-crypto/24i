@@ -230,7 +230,7 @@ export function Intro() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex h-full flex-col items-center justify-between px-6 pb-10 pt-28 text-center sm:pt-32">
         <div>
-          <p data-hero className="font-mono text-[11px] uppercase tracking-[0.5em] text-mute sm:text-xs"><span className="normal-case">24i</span> Production · Beirut</p>
+          <p data-hero className="font-mono text-[11px] uppercase tracking-[0.5em] text-mute sm:text-xs"><span className="normal-case">24i</span> Production · Lebanon</p>
           <h1 data-hero className="font-wide mt-4 text-[clamp(2.6rem,9vw,8.5rem)] uppercase leading-[0.86]">
             <span className="sr-only">24i Production. </span>We see it<span className="text-teal-bright">.</span>
           </h1>

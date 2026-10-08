@@ -4,7 +4,7 @@ import { handleForm } from "@/lib/website/handle-form";
 
 export async function POST(req: NextRequest) {
   return handleForm(req, "booking", bookingSchema, (d) => ({
-    subject: `Meeting request: ${d.date} ${d.time} (Beirut) with ${d.name}`,
+    subject: `Meeting request: ${d.date} ${d.time} (Lebanon time) with ${d.name}`,
     replyTo: d.email,
     fields: {
       Name: d.name,

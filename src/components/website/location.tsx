@@ -3,8 +3,8 @@ import { Reveal } from "./reveal";
 import { LocalTime } from "./local-time";
 
 export function Location() {
-  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&z=14&output=embed`;
-  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(site.mapQuery)}`;
+  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&z=16&output=embed`;
+  const directions = site.mapsLink;
   return (
     <Reveal as="section" id="location" aria-labelledby="location-title" className="relative bg-ink px-6 pb-24 pt-32 sm:px-10 md:px-16 md:pb-32 md:pt-40">
       <div className="mx-auto max-w-[1400px]">
