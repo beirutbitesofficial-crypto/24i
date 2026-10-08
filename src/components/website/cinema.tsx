@@ -21,7 +21,7 @@ const CUT = 8.0;
 const INTRO_END = 9.0;
 
 // Wall-clock durations for page turns.
-const INTRO_PLAY = 7.2;
+const INTRO_PLAY = 15;
 const INTRO_REWIND = 2.2;
 const PAGE_TURN = 1.6;
 const INPUT_COOLDOWN = 450;
@@ -341,11 +341,8 @@ export function Cinema() {
 
         const step = (dir: 1 | -1) => {
           if (performance.now() < quietUntil) return;
-          if (turning) {
-            // Impatient during the intro? Fast-forward it instead of queueing pages.
-            if (dir === 1 && index === 1 && master.time() < labels[1]) turning.timeScale(3);
-            return;
-          }
+          // Ignore input while a page is turning (the intro always plays in full; "Skip intro" jumps ahead).
+          if (turning) return;
           if (dir === 1) {
             if (index < last) go(index + 1);
             else leave(true);
