@@ -27,7 +27,7 @@ The public marketing site is part of this app and is deployed with it: `24iprodu
 
 ### Configuration
 
-The `NEXT_PUBLIC_*` contact fields and the form delivery settings are in `.env.example`. Contact channels only appear when they are set. In production, set `RESEND_API_KEY` + `FORM_TO_EMAIL` and/or `FORM_WEBHOOK_URL`. If neither is set, submissions return a 503 with a "reach us directly" message, so no enquiry is silently lost.
+Studio contact details (email, phone, WhatsApp, Instagram, address, map) are set in `src/lib/website/site.ts` and can be overridden with the `NEXT_PUBLIC_*` variables in `.env.example`. In production, set `RESEND_API_KEY` + `FORM_TO_EMAIL` and/or `FORM_WEBHOOK_URL`. If neither is set, submissions return a 503 with a "reach us directly" message, so no enquiry is silently lost.
 
 ## Local setup
 

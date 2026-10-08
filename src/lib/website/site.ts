@@ -2,13 +2,17 @@ const env = (value: string | undefined) => (value ?? "").trim();
 
 export const site = {
   name: "24i Production",
-  url: env(process.env.NEXT_PUBLIC_SITE_URL) || "http://localhost:3000",
-  email: env(process.env.NEXT_PUBLIC_CONTACT_EMAIL),
-  phone: env(process.env.NEXT_PUBLIC_CONTACT_PHONE),
-  whatsapp: env(process.env.NEXT_PUBLIC_WHATSAPP),
-  instagram: env(process.env.NEXT_PUBLIC_INSTAGRAM),
-  address: env(process.env.NEXT_PUBLIC_ADDRESS) || "Beirut, Lebanon",
-  mapQuery: env(process.env.NEXT_PUBLIC_MAP_QUERY) || "Beirut, Lebanon",
+  url: env(process.env.NEXT_PUBLIC_SITE_URL) || "https://24iproduction.com",
+  // Studio details. Each can be overridden with the matching NEXT_PUBLIC_* env var.
+  email: env(process.env.NEXT_PUBLIC_CONTACT_EMAIL) || "24iprd@gmail.com",
+  phone: env(process.env.NEXT_PUBLIC_CONTACT_PHONE) || "+961 71 364 090",
+  whatsapp: env(process.env.NEXT_PUBLIC_WHATSAPP) || "+961 71 364 090",
+  instagram: env(process.env.NEXT_PUBLIC_INSTAGRAM) || "24iproduction",
+  address: env(process.env.NEXT_PUBLIC_ADDRESS) || "Office 10, 3rd Floor, JMR Mall",
+  /** Map embed query: JMR Mall coordinates with a label. */
+  mapQuery: env(process.env.NEXT_PUBLIC_MAP_QUERY) || "33.6137054,35.4756307 (24i Production, JMR Mall)",
+  /** Link opened by "Get directions". */
+  mapsLink: env(process.env.NEXT_PUBLIC_MAPS_LINK) || "https://maps.app.goo.gl/qd4m3z1EqPNXXLih8",
   bookingUrl: env(process.env.NEXT_PUBLIC_BOOKING_URL),
   timezone: "Asia/Beirut",
 };
