@@ -14,6 +14,8 @@ self.addEventListener("activate",(event)=>{
 
 self.addEventListener("fetch",(event)=>{
   if(event.request.method!=="GET")return;
+  // The marketing website is served under /website by a separate app; leave it to the network.
+  if(new URL(event.request.url).pathname.startsWith("/website"))return;
   event.respondWith(
     fetch(event.request).catch(()=>caches.match(event.request).then((response)=>response||caches.match("/offline.html")))
   );

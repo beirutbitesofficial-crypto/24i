@@ -2,6 +2,10 @@
 
 Production-oriented Next.js/PostgreSQL foundation for agency operations. It includes a relational Prisma domain model, secure cookie sessions with Argon2id passwords, server-side RBAC/client isolation helpers, immutable content versions, separate visual/caption approvals, mandatory revision notes, slide-specific carousel notes, exact decimal payment accounting, append-only financial transactions/audits, push subscriptions, PWA shell and a responsive dashboard.
 
+## Marketing website
+
+The public website lives in `website/` as a separate Next.js app, served at `/website` when `WEBSITE_URL` is set. See `website/README.md`.
+
 ## Local setup
 
 1. Install Node.js 22+, PostgreSQL 16+, and an S3-compatible object store.
