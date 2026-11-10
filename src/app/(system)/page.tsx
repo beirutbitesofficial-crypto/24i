@@ -42,6 +42,10 @@ function homeGreeting(role: string, firstName: string, ar: boolean) {
       en: ["Big picture, smooth execution 🚀", "Keep the whole operation moving 🎯", "Another day to build better ✨"],
       ar: ["الصورة الكبيرة والتنفيذ المرتب 🚀", "خلّي كل العملية ماشية 🎯", "نهار جديد لنطوّر أكتر ✨"],
     },
+    PARTNER: {
+      en: ["Here’s how the agency is doing 📊", "The numbers and the work, at a glance 💼", "Big picture, today 🚀"],
+      ar: ["هيك ماشية الشركة اليوم 📊", "الأرقام والشغل بنظرة وحدة 💼", "الصورة الكبيرة لليوم 🚀"],
+    },
     CLIENT: {
       en: ["Your content is in good hands 😎", "Let’s make your brand shine ✨", "Good things are cooking for your brand 👀"],
       ar: ["محتواك بإيد أمينة 😎", "يلا نخلي البراند يلمع ✨", "في شغلات حلوة عم تنطبخ للبراند 👀"],

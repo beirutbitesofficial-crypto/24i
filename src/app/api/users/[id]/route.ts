@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, hashPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensurePartnerRole } from "@/lib/roles";
 import { checkClients } from "@/lib/scope";
 
-const roleKeys = ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER","CLIENT"] as const;
+const roleKeys = ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER","CLIENT","PARTNER"] as const;
 const patchSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   roleKey: z.enum(roleKeys).optional(),
@@ -36,6 +37,7 @@ async function handlePATCH(req: Request, { params }: { params: Promise<{ id: str
 
   let roleId: string | undefined;
   if (parsed.data.roleKey) {
+    if (parsed.data.roleKey === "PARTNER") await ensurePartnerRole();
     const role = await db.role.findUnique({ where: { key: parsed.data.roleKey } });
     if (!role) return NextResponse.json({ error: "Role not found" }, { status: 400 });
     roleId = role.id;

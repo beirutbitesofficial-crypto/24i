@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requirePageUser, hasPermission } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensurePartnerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { UserManagement } from "@/components/user-management";
 import { billingSummaries, packageOptions } from "@/lib/client-billing";
@@ -11,6 +12,7 @@ export default async function UsersPage() {
 
   const canBill = hasPermission(actor, "packages.write") && hasPermission(actor, "finance.invoices.write");
   const canPay = hasPermission(actor, "finance.payments.write");
+  await ensurePartnerRole();
   const [users, clients, roles, packages] = await Promise.all([
     db.user.findMany({
       include: { role: true, clientUsers: { include: { client: true } } },

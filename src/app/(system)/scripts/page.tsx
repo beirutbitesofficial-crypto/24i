@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { ScriptWorkflow } from "@/components/script-workflow";
 import { aiConfigured } from "@/lib/ai";
 
-const allowedRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"]);
+const allowedRoles = new Set(["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT", "PARTNER"]);
 
 export default async function ScriptsPage() {
   const user = await requirePageUser();

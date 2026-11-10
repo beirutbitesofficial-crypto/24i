@@ -4,9 +4,10 @@ import { z } from "zod";
 import { authorize, hashPassword, hasPermission } from "@/lib/auth";
 import { assignClientPackage, billingInput, BillingError, wantsPackage } from "@/lib/client-billing";
 import { db } from "@/lib/db";
+import { ensurePartnerRole } from "@/lib/roles";
 import { checkClients } from "@/lib/scope";
 
-const roleKeys = ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER","CLIENT"] as const;
+const roleKeys = ["ADMIN","MANAGER","EDITOR","SOCIAL_MEDIA_MANAGER","CLIENT","PARTNER"] as const;
 const createSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().email(),
@@ -59,6 +60,7 @@ async function handlePOST(req: Request) {
   const invalidClients = await checkClients(data.clientIds);
   if (invalidClients) return NextResponse.json({ error: invalidClients }, { status: 400 });
 
+  if (data.roleKey === "PARTNER") await ensurePartnerRole();
   const role = await db.role.findUnique({ where: { key: data.roleKey } });
   if (!role) return NextResponse.json({ error: "Role not found" }, { status: 400 });
 
