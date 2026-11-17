@@ -24,6 +24,7 @@ const arTitles: Record<string, string> = {
   Tasks: "المهام",
   Content: "المحتوى",
   Scripts: "السكربتات",
+  Teleprompter: "التيليبرومبتر",
   "Shooting days": "أيام التصوير",
   Meetings: "الاجتماعات",
   Calendar: "التقويم",
@@ -73,7 +74,7 @@ const arRoles: Record<string, string> = {
   PARTNER: "شريك",
 };
 
-const WORKSPACE = ["/", "/tasks", "/content", "/scripts", "/shooting", "/meetings", "/calendar", "/chat", "/notifications"];
+const WORKSPACE = ["/", "/tasks", "/content", "/scripts", "/teleprompter", "/shooting", "/meetings", "/calendar", "/chat", "/notifications"];
 const CHAT_ROLES = ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT"];
 
 export function AppShell({ user, title, kicker, actions, children }: { user: ShellUser; title: string; kicker: string; actions?: React.ReactNode; children: React.ReactNode }) {
@@ -86,6 +87,7 @@ export function AppShell({ user, title, kicker, actions, children }: { user: She
     { href: "/", icon: "dashboard", label: ar ? "الرئيسية" : "Home", permission: "dashboard.read" },
     { href: "/tasks", icon: "check", label: ar ? "المهام" : "Tasks", permission: "tasks.read" },
     { href: "/content", icon: "image", label: ar ? "المحتوى" : "Content", permission: "content.read" },
+    { href: "/teleprompter", icon: "teleprompter", label: ar ? "التيليبرومبتر" : "Teleprompter", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT", "PARTNER"] },
     { href: "/scripts", icon: "script", label: ar ? "السكربتات" : "Scripts", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER", "EDITOR", "CLIENT", "PARTNER"] },
     { href: "/shooting", icon: "camera", label: ar ? "أيام التصوير" : "Shooting days", roles: ["ADMIN", "MANAGER", "SOCIAL_MEDIA_MANAGER"] },
     { href: "/meetings", icon: "calendar", label: ar ? "الاجتماعات" : "Meetings", roles: ["ADMIN", "MANAGER"] },

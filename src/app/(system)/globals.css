@@ -530,3 +530,4 @@ main > div > .chat-thread, .workspace > .chat-thread { height: calc(100dvh - 170
   .shell[dir="rtl"] .assistant-panel { left: 0; }
 }
 .bubble-row.pending .bubble { opacity: .65; }
+.tp-link { display: inline-flex; align-items: center; text-decoration: none; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--ink-2); font-weight: 600; background: var(--surface); }

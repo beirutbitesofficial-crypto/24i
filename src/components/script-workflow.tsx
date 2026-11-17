@@ -211,6 +211,7 @@ export function ScriptWorkflow({ clients, scripts, isClient, canWrite, ar = fals
             <h2>{script.title}</h2>
           </div>
           <div className="script-head-actions">
+          {script.body && <a className="secondary copy-script tp-link" href={`/teleprompter?script=${script.id}`}>{ar ? "تيليبرومبتر" : "Teleprompter"}</a>}
           {!isClient && script.body && <CopyButton text={script.body} ar={ar} />}
           {script.byClient
             ? <span className="badge badge-accent">{script.mine ? (ar ? "كتبته أنت" : "Written by you") : `${ar ? "من العميل" : "From client"}${script.authorName ? ` · ${script.authorName}` : ""}`}</span>
