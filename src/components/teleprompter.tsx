@@ -208,6 +208,88 @@ export function Teleprompter({ scripts, initialScriptId, fontClassName, ar }: { 
      
   }, [stage, toggle, nudge, applyOffset]);
 
+  // ---- Phone remote -------------------------------------------------------------------
+  // Another phone opens /teleprompter/remote, types the code shown here and sends commands.
+  // This page polls for them (and reports its state back so the phone can show it).
+  const [remoteCode, setRemoteCode] = useState<string | null>(null);
+  const [remotePanel, setRemotePanel] = useState(false);
+  const [remoteConnected, setRemoteConnected] = useState(false);
+  const live = useRef({ playing, stage, progress, count });
+  live.current = { playing, stage, progress, count };
+  const runCommand = useRef<(command: string, value: number | null) => void>(() => {});
+  runCommand.current = (command, value) => {
+    const line = settingsRef.current.fontSize * settingsRef.current.lineHeight;
+    switch (command) {
+      case "toggle": if (!live.current.stage) startStage(); else toggle(); break;
+      case "play": if (!live.current.stage) startStage(); else if (!live.current.playing && live.current.count === 0) toggle(); break;
+      case "pause": setPlaying(false); setCount(0); break;
+      case "faster": setSettings((s) => ({ ...s, speed: Math.min(300, s.speed + 5) })); break;
+      case "slower": setSettings((s) => ({ ...s, speed: Math.max(5, s.speed - 5) })); break;
+      case "speed": if (value) setSettings((s) => ({ ...s, speed: Math.min(300, Math.max(5, Math.round(value))) })); break;
+      case "forward": nudge(line * 2); break;
+      case "back": nudge(-line * 2); break;
+      case "restart": offset.current = 0; applyOffset(); break;
+      case "bigger": setSettings((s) => ({ ...s, fontSize: Math.min(160, s.fontSize + 4) })); break;
+      case "smaller": setSettings((s) => ({ ...s, fontSize: Math.max(20, s.fontSize - 4) })); break;
+      case "mirror": setSettings((s) => ({ ...s, mirrorX: !s.mirrorX })); break;
+    }
+  };
+
+  async function openRemote() {
+    setRemotePanel(true);
+    if (remoteCode) return;
+    try {
+      const res = await fetch("/api/teleprompter/remote", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "failed");
+      setRemoteCode(data.code);
+    } catch {
+      setNotice(t("Could not start the phone remote. Try again.", "ما زبط تشغيل الريموت. جرّب مرة تانية."));
+      setRemotePanel(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!remoteCode) return;
+    let lastId = 0;
+    let busy = false;
+    let stopped = false;
+    const poll = async () => {
+      if (busy || stopped) return;
+      busy = true;
+      try {
+        const res = await fetch(`/api/teleprompter/remote/${remoteCode}?after=${lastId}`, { cache: "no-store" });
+        if (res.status === 404) { setRemoteCode(null); setRemoteConnected(false); return; }
+        const data = await res.json();
+        for (const c of data.commands || []) { lastId = Math.max(lastId, c.id); runCommand.current(c.command, c.value); }
+        setRemoteConnected(!!data.remoteConnected);
+      } catch { /* offline for a moment */ } finally { busy = false; }
+    };
+    const fast = setInterval(poll, 350);
+    const report = setInterval(() => {
+      const s = settingsRef.current;
+      void fetch(`/api/teleprompter/remote/${remoteCode}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playing: live.current.playing || live.current.count > 0, open: live.current.stage, speed: s.speed, fontSize: s.fontSize, mirror: s.mirrorX, progress: Math.min(1, Math.max(0, live.current.progress)), title: scripts.find((x) => x.id === scriptId)?.title }),
+      }).catch(() => {});
+    }, 1000);
+    return () => { stopped = true; clearInterval(fast); clearInterval(report); };
+  }, [remoteCode, scriptId, scripts]);
+
+  const remoteUrl = remoteCode && typeof window !== "undefined" ? `${window.location.origin}/teleprompter/remote?code=${remoteCode}` : "";
+  const remoteBox = remotePanel && <div className="tp-remote-panel" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()} role="dialog" aria-label={t("Phone remote", "ريموت التلفون")} dir={ar ? "rtl" : "ltr"}>
+    <button type="button" className="tp-remote-close" onClick={() => setRemotePanel(false)} aria-label={t("Close", "إغلاق")}>✕</button>
+    <b>📱 {t("Control from another phone", "تحكّم من تلفون تاني")}</b>
+    <p>{t("On the other phone open", "عالتلفون التاني افتح")} <span dir="ltr" className="tp-remote-url">{remoteUrl ? remoteUrl.replace(/^https?:\/\//, "").replace(/\?code=.*$/, "") : "…"}</span> {t("and type this code:", "واكتب هالكود:")}</p>
+    <div className="tp-remote-code" dir="ltr">{remoteCode ?? "······"}</div>
+    {remoteUrl && <div className="tp-remote-actions">
+      <button type="button" className="secondary" onClick={() => { void navigator.clipboard?.writeText(remoteUrl).then(() => setNotice(t("Link copied.", "تم نسخ الرابط."))).catch(() => {}); }}>{t("Copy link", "نسخ الرابط")}</button>
+      {typeof navigator !== "undefined" && "share" in navigator && <button type="button" className="secondary" onClick={() => { void navigator.share({ title: "Teleprompter remote", url: remoteUrl }).catch(() => {}); }}>{t("Share", "مشاركة")}</button>}
+    </div>}
+    <small className={remoteConnected ? "tp-remote-on" : "tp-remote-off"}>{remoteConnected ? t("● Phone connected", "● التلفون متصل") : t("○ Waiting for the phone…", "○ ناطر التلفون…")}</small>
+  </div>;
+
   // Re-clamp when the text or size changes while the prompter is open.
   useEffect(() => { if (stage) applyOffset(); }, [stage, settings.fontSize, settings.lineHeight, settings.margin, text, applyOffset]);
 
@@ -245,6 +327,7 @@ export function Teleprompter({ scripts, initialScriptId, fontClassName, ar }: { 
 
   return <div className={`tp ${fontClassName}`}>
     {notice && <div className="notice" role="status">{notice}</div>}
+    {!stage && remoteBox}
 
     <div className="tp-layout">
       <section className="panel tp-editor">
@@ -256,6 +339,7 @@ export function Teleprompter({ scripts, initialScriptId, fontClassName, ar }: { 
           <label className="tp-file secondary">{t("Open .txt", "فتح ملف")}<input type="file" accept=".txt,text/plain" hidden onChange={(e) => { openFile(e.target.files?.[0]); e.target.value = ""; }} /></label>
           <button type="button" className="secondary" onClick={() => void copy()}>{t("Copy", "نسخ")}</button>
           <button type="button" className="secondary" onClick={download}>{t("Download", "تنزيل")}</button>
+          <button type="button" className={`secondary${remoteConnected ? " tp-remote-active" : ""}`} onClick={() => void openRemote()}>📱 {t("Phone remote", "ريموت التلفون")}</button>
         </div>
         <textarea
           className="tp-input"
@@ -314,6 +398,7 @@ export function Teleprompter({ scripts, initialScriptId, fontClassName, ar }: { 
           {settings.guide && <div className="tp-guide" aria-hidden="true" />}
         </div>
         {count > 0 && <div className="tp-count">{count}</div>}
+        {remoteBox}
       </div>
       <div className="tp-controls" dir={ar ? "rtl" : "ltr"}>
         <button type="button" onClick={closeStage} aria-label={t("Close", "إغلاق")}>✕</button>
@@ -325,6 +410,7 @@ export function Teleprompter({ scripts, initialScriptId, fontClassName, ar }: { 
         <button type="button" onClick={() => set("fontSize", Math.max(20, settings.fontSize - 4))} aria-label={t("Smaller text", "خط أصغر")}>A−</button>
         <button type="button" onClick={() => set("fontSize", Math.min(160, settings.fontSize + 4))} aria-label={t("Bigger text", "خط أكبر")}>A+</button>
         <button type="button" className={settings.mirrorX ? "active" : ""} onClick={() => set("mirrorX", !settings.mirrorX)} aria-label={t("Mirror", "عكس")}>⇋</button>
+        <button type="button" className={remoteConnected ? "active" : ""} onClick={() => void openRemote()} aria-label={t("Phone remote", "ريموت التلفون")}>📱</button>
         <div className="tp-progress"><span style={{ width: `${Math.round(progress * 100)}%` }} /></div>
       </div>
     </div>, document.body)}

@@ -48,3 +48,25 @@ export function ensureMeetingTables() {
   });
   return meetingsReady;
 }
+
+// Teleprompter phone remote: a pairing code per open prompter and a queue of commands.
+// Created on first use like the tables above; idempotent.
+const TELEPROMPTER_REMOTE_SQL = [
+  `CREATE TABLE IF NOT EXISTS "TeleprompterRemote" ("code" TEXT NOT NULL, "ownerId" TEXT NOT NULL, "state" JSONB, "stateAt" TIMESTAMPTZ, "remoteAt" TIMESTAMPTZ, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT "TeleprompterRemote_pkey" PRIMARY KEY ("code"))`,
+  `CREATE TABLE IF NOT EXISTS "TeleprompterCommand" ("id" BIGSERIAL NOT NULL, "code" TEXT NOT NULL, "command" TEXT NOT NULL, "value" DOUBLE PRECISION, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT "TeleprompterCommand_pkey" PRIMARY KEY ("id"))`,
+  `CREATE INDEX IF NOT EXISTS "TeleprompterCommand_code_id_idx" ON "TeleprompterCommand"("code", "id")`,
+];
+
+let remoteReady: Promise<void> | null = null;
+
+export function ensureTeleprompterRemoteTables() {
+  remoteReady ??= (async () => {
+    const [{ exists }] = await db.$queryRaw<{ exists: boolean }[]>`SELECT to_regclass('"TeleprompterCommand"') IS NOT NULL AS "exists"`;
+    if (exists) return;
+    for (const sql of TELEPROMPTER_REMOTE_SQL) await db.$executeRawUnsafe(sql);
+  })().catch((error) => {
+    remoteReady = null;
+    throw error;
+  });
+  return remoteReady;
+}

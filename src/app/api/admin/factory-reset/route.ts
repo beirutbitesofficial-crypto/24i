@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireUser, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteStoredObject } from "@/lib/storage";
-import { ensureChatTables } from "@/lib/db-upgrades";
+import { ensureChatTables, ensureTeleprompterRemoteTables } from "@/lib/db-upgrades";
 
 const schema = z.object({
   password: z.string().min(1).max(128),
@@ -14,6 +14,7 @@ const schema = z.object({
 // Every table holding agency data. Roles, permissions, admin accounts, agency settings and
 // the migration history are intentionally NOT listed and survive the reset.
 const DATA_TABLES = [
+  "TeleprompterCommand", "TeleprompterRemote",
   "ChatRead", "ChatMessage",
   "PublishingAttempt", "SocialChannel",
   "ApprovalNote", "Approval", "CarouselSlide", "ContentVersion", "CaptionVersion", "CalendarEntry", "ContentItem",
@@ -38,6 +39,7 @@ async function handlePOST(req: Request) {
   }
 
   await ensureChatTables();
+  await ensureTeleprompterRemoteTables();
   const storedKeys = (await db.fileObject.findMany({ where: { deletedAt: null }, select: { key: true } })).map((f) => f.key);
 
   const removed = await db.$transaction(async (tx) => {
